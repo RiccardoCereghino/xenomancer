@@ -1,0 +1,17 @@
+[
+  { "name": "engine",          "color": "5319e7", "description": "The pure deterministic reducer (/engine, ADR-000 D1)." },
+  { "name": "content",         "color": "0e8a16", "description": "Inert hash-addressed content data: maps, templates, dictionaries (/content)." },
+  { "name": "shell",           "color": "1d76db", "description": "A shell hosting the core: stdio now, HTTP/spectator later (/shell, ADR-000 D8)." },
+  { "name": "agent",           "color": "fbca04", "description": "Player agents: scripted, centaur, or LLM (/agent)." },
+  { "name": "parser",          "color": "c2e0c6", "description": "The quarantined freeform-to-canonical dictionary parser (ADR-000 D3)." },
+  { "name": "ci",              "color": "ededed", "description": "GitHub Actions workflows, determinism guard, showcase job." },
+  { "name": "docs",            "color": "0075ca", "description": "GDD, ADRs, CONTRIBUTING, and other documentation." },
+  { "name": "feature",         "color": "a2eeef", "description": "A new mechanic, system, or content change serving a pillar." },
+  { "name": "bug",             "color": "d73a4a", "description": "Behavior against spec." },
+  { "name": "tuning",          "color": "d4c5f9", "description": "A difficulty-knob or content-value change backed by evidence (GDD §3)." },
+  { "name": "determinism",     "color": "b60205", "description": "Touches replay reproducibility or the determinism laws (ADR-000 D5)." },
+  { "name": "unfair-death",    "color": "b60205", "description": "engine.unfair must stay at zero — the highest-priority bug class (GDD §5.7)." },
+  { "name": "adr-needed",      "color": "5319e7", "description": "A decision that must be recorded in an ADR before or alongside this work." },
+  { "name": "blocked",         "color": "000000", "description": "Cannot proceed until a dependency is resolved." },
+  { "name": "good-first-issue","color": "7057ff", "description": "A well-scoped entry point for a first contribution." }
+]
