@@ -11,6 +11,9 @@ on:
     paths:
       - ".github/labels.json"
       - ".github/backlog/**"
+  # Manual rerun path (Actions tab) — no dummy push to main required. Safe
+  # because the whole reconcile is idempotent by construction.
+  workflow_dispatch:
 
 permissions:
   issues: write
