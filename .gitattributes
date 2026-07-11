@@ -1,0 +1,19 @@
+# Normalize line endings so a content pack's SHA-256 (ADR-000 D5.5) is
+# identical on every platform. Without this, a Windows checkout with
+# autocrlf=true rewrites text files to CRLF, changing their bytes and their
+# hash, and the determinism/golden-replay job fails only on Windows.
+
+# Default: treat everything Git detects as text as text, and always check it
+# out with LF line endings regardless of core.autocrlf.
+* text=auto eol=lf
+
+# Belt-and-suspenders for the files whose exact bytes are hashed or replayed.
+*.json  text eol=lf
+*.go    text eol=lf
+*.sh    text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+
+# Binary assets (none today) must never be normalized; keep this line as the
+# place to declare them.
+*.png binary

@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Hermetic, zero-token engine CI (ADR-000 D5, GDD §10).
+jobs:
+  # Build + test on an OS matrix. Because the golden state hash is committed and
+  # asserted equal on every OS, a green matrix is the cross-platform
+  # determinism proof (ADR-000 D5 CI enforcement (a)(b)).
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+
+  # Determinism: replay the golden log twice, in separate processes, and assert
+  # the reproduced state hashes are byte-identical (ADR-000 D6).
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Replay golden log twice and compare hashes
+        shell: bash
+        run: |
+          H1="$(go run ./scripts/verifygolden)"
+          H2="$(go run ./scripts/verifygolden)"
+          echo "run 1: $H1"
+          echo "run 2: $H2"
+          if [ "$H1" != "$H2" ]; then
+            echo "determinism FAIL: golden replay hashes differ between runs"
+            exit 1
+          fi
+          echo "determinism OK: golden replay reproduced identically"
+
+  # Guard: fail if math/rand, time., float32, or float64 appear under /engine
+  # (ADR-000 D5 CI enforcement (c)).
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determinism lint guard
+        shell: bash
+        run: ./scripts/check-determinism.sh

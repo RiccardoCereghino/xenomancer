@@ -1,0 +1,45 @@
+{
+  "header": {
+    "engine_version": "0.1.0",
+    "protocol_version": 1,
+    "content_hash": "sha256:ff4e528bfc4d087650e91f14e1ca8fbd1ea906da697e2ba533a6c7136ccf5f97",
+    "seed": 1,
+    "bracket": "scripted"
+  },
+  "log": [
+    {
+      "v": 1,
+      "round": 1,
+      "actions": [
+        {
+          "resource": "legs",
+          "verb": "perform",
+          "target": "forest_path"
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "round": 2,
+      "actions": [
+        {
+          "resource": "attention",
+          "verb": "wait",
+          "target": ""
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "round": 3,
+      "actions": [
+        {
+          "resource": "attention",
+          "verb": "wait",
+          "target": ""
+        }
+      ]
+    }
+  ],
+  "final_state_hash": "sha256:e5d2a27270ff2d396a1203a3e628b797d0a46b2516c1ff6f25946b154c8fc27d"
+}
