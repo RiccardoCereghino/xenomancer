@@ -1,8 +1,9 @@
 // Package scripted is a deterministic agent for the scripted bracket
-// (GDD §3). It emits a fixed sequence of canonical round envelopes: walk from
-// the clearing to the forest path, wait twice, then exit. Being fully scripted
-// it does not depend on observations, so it drives the stdio shell over a
-// one-way pipe.
+// (GDD §3). It emits a fixed sequence of canonical round envelopes that walk
+// the full Zone-1 slice: clearing -> forest_path -> still_pond, inspect the
+// reflection (observing the per-seed eye color), then back to forest_path and
+// on to the gate. Being fully scripted it does not read observations, so it
+// drives the stdio shell over a one-way pipe.
 package scripted
 
 import "github.com/RiccardoCereghino/xenomancer/engine"
@@ -20,20 +21,36 @@ func Script() []engine.RoundSubmission {
 				{Resource: "legs", Verb: engine.VerbPerform, Target: "forest_path"},
 			},
 		},
-		// Round 2: wait.
+		// Round 2: take the branch forest_path -> still_pond.
 		{
 			V:     engine.ProtocolVersion,
 			Round: 2,
 			Actions: []engine.Action{
-				{Resource: "attention", Verb: engine.VerbWait},
+				{Resource: "legs", Verb: engine.VerbPerform, Target: "still_pond"},
 			},
 		},
-		// Round 3: wait.
+		// Round 3: inspect the reflection — observe the per-seed eye color.
 		{
 			V:     engine.ProtocolVersion,
 			Round: 3,
 			Actions: []engine.Action{
-				{Resource: "attention", Verb: engine.VerbWait},
+				{Resource: "attention", Verb: engine.VerbInspect, Target: "reflection"},
+			},
+		},
+		// Round 4: back off the branch still_pond -> forest_path.
+		{
+			V:     engine.ProtocolVersion,
+			Round: 4,
+			Actions: []engine.Action{
+				{Resource: "legs", Verb: engine.VerbPerform, Target: "forest_path"},
+			},
+		},
+		// Round 5: walk forest_path -> gate.
+		{
+			V:     engine.ProtocolVersion,
+			Round: 5,
+			Actions: []engine.Action{
+				{Resource: "legs", Verb: engine.VerbPerform, Target: "gate"},
 			},
 		},
 	}

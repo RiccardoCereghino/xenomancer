@@ -1,13 +1,24 @@
 {
   "start_location": "clearing",
+  "eye_color_palette": ["blue", "green", "brown", "grey"],
   "locations": [
     {
       "id": "clearing",
-      "exits": ["forest_path"]
+      "exits": ["forest_path"],
+      "inspectables": [{"id": "self", "reveals": "self"}]
     },
     {
       "id": "forest_path",
-      "exits": ["clearing"]
+      "exits": ["clearing", "still_pond", "gate"]
+    },
+    {
+      "id": "still_pond",
+      "exits": ["forest_path"],
+      "inspectables": [{"id": "reflection", "reveals": "eye_color"}]
+    },
+    {
+      "id": "gate",
+      "exits": ["forest_path"]
     }
   ]
 }

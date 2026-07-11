@@ -98,10 +98,35 @@ func Reduce(s State, sub RoundSubmission) (State, []Event, error) {
 				events = append(events, rejection(ns, a, ReasonIllegalMove))
 			}
 
-		case VerbInspect, VerbTalk:
-			// No inspectable objects and no NPCs exist in zone 1 this sprint
-			// (the pond and the guard arrive in sprint 1). Every such target
-			// is therefore unknown.
+		case VerbInspect:
+			// An inspect perceives an inspectable defined at the current
+			// location (GDD §5.3). The pond reflection reveals the per-seed
+			// eye color; a self-inspection in the clearing reveals species and
+			// hair, never eyes (GDD §7). Anything else is an unknown target.
+			insp, ok := ns.Content.inspectable(ns.Location, a.Target)
+			if !ok {
+				events = append(events, rejection(ns, a, ReasonUnknownTarget))
+				continue
+			}
+			ev := Event{
+				Kind:     EventObserved,
+				Resource: a.Resource,
+				Verb:     a.Verb,
+				Target:   a.Target,
+				Fact:     insp.Reveals,
+				Tick:     ns.Tick,
+				Round:    ns.Round,
+			}
+			// Only the eye-color fact carries a per-seed value; it is derived
+			// on demand from the seed and never stored in State.
+			if insp.Reveals == FactEyeColor {
+				ev.Value = ns.Content.eyeColor(ns.Seed)
+			}
+			events = append(events, ev)
+
+		case VerbTalk:
+			// No NPCs exist in zone 1 this sprint (the gate guard arrives in
+			// backlog 03). Every talk target is therefore unknown.
 			events = append(events, rejection(ns, a, ReasonUnknownTarget))
 
 		default:
