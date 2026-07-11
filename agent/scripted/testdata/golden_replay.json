@@ -2,7 +2,7 @@
   "header": {
     "engine_version": "0.1.0",
     "protocol_version": 1,
-    "content_hash": "sha256:ff4e528bfc4d087650e91f14e1ca8fbd1ea906da697e2ba533a6c7136ccf5f97",
+    "content_hash": "sha256:12378e265ea91cea2ada8b575bf951fadcf1e048cb5ee3a2494c514c2cd97eed",
     "seed": 1,
     "bracket": "scripted"
   },
@@ -23,9 +23,9 @@
       "round": 2,
       "actions": [
         {
-          "resource": "attention",
-          "verb": "wait",
-          "target": ""
+          "resource": "legs",
+          "verb": "perform",
+          "target": "still_pond"
         }
       ]
     },
@@ -35,11 +35,33 @@
       "actions": [
         {
           "resource": "attention",
-          "verb": "wait",
-          "target": ""
+          "verb": "inspect",
+          "target": "reflection"
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "round": 4,
+      "actions": [
+        {
+          "resource": "legs",
+          "verb": "perform",
+          "target": "forest_path"
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "round": 5,
+      "actions": [
+        {
+          "resource": "legs",
+          "verb": "perform",
+          "target": "gate"
         }
       ]
     }
   ],
-  "final_state_hash": "sha256:e5d2a27270ff2d396a1203a3e628b797d0a46b2516c1ff6f25946b154c8fc27d"
+  "final_state_hash": "sha256:964206448bc0af164f7dfc3c32568ba12362330f3e87c6bfe76e5eaf2054aaca"
 }

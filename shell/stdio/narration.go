@@ -9,11 +9,12 @@ import (
 // The narrator is a pure consumer of engine events and location state
 // (ADR-000 D2); it lives in the shell, never in the engine.
 type narration struct {
-	Locations  map[string]string `json:"locations"`
-	OnEnter    string            `json:"on_enter"`
-	Wait       string            `json:"wait"`
-	Idle       string            `json:"idle"`
-	Rejections map[string]string `json:"rejections"`
+	Locations    map[string]string `json:"locations"`
+	OnEnter      string            `json:"on_enter"`
+	Wait         string            `json:"wait"`
+	Idle         string            `json:"idle"`
+	Observations map[string]string `json:"observations"`
+	Rejections   map[string]string `json:"rejections"`
 }
 
 func loadNarration(data []byte) (narration, error) {
@@ -25,8 +26,9 @@ func loadNarration(data []byte) (narration, error) {
 }
 
 // render composes deterministic narration for a resolved round. Templates are
-// looked up by key (never iterated), so output order is fixed.
-func (n narration) render(location string, moved, waited bool, rejections []Rejection) string {
+// looked up by key (never iterated), so output order is fixed. Observations are
+// rendered in event order; the eye-color line names the color via {value}.
+func (n narration) render(location string, moved, waited bool, observations []Observation, rejections []Rejection) string {
 	var parts []string
 
 	if moved {
@@ -35,6 +37,12 @@ func (n narration) render(location string, moved, waited bool, rejections []Reje
 		parts = append(parts, line)
 	} else if waited {
 		parts = append(parts, n.Wait)
+	}
+
+	for i := 0; i < len(observations); i++ {
+		if msg, ok := n.Observations[observations[i].Fact]; ok {
+			parts = append(parts, strings.ReplaceAll(msg, "{value}", observations[i].Value))
+		}
 	}
 
 	for i := 0; i < len(rejections); i++ {

@@ -58,12 +58,18 @@ const (
 
 // Event kinds emitted by Reduce. Events are the only seam between the reducer
 // and every downstream consumer — narrator, scoring, spectator, replay
-// (ADR-000 D2). This sprint emits moved, waited, and rejected; the remaining
-// kinds (observed, telegraph, ritual_step, died) arrive with later content.
+// (ADR-000 D2). This sprint emits moved, waited, rejected, and observed; the
+// remaining kinds (telegraph, ritual_step, died) arrive with later content.
 const (
 	EventMoved    = "moved"
 	EventWaited   = "waited"
 	EventRejected = "rejected"
+	// EventObserved reports a fact the agent perceived this round (GDD §5.3).
+	// The eye-color observation at the still pond is the first instance: its
+	// Value is the per-seed palette word (see Content.eyeColor). Recall of an
+	// observed fact is the agent's responsibility, never the engine's — the
+	// reducer stores no observation in State, only emits the event.
+	EventObserved = "observed"
 )
 
 // Action is a single resource claim within a round (ADR-000 D4). Args is
@@ -99,6 +105,8 @@ type Hold struct {
 
 // Event is an ordered, structured record of something that happened in a
 // round. Fields are flat and typed (no maps) so the encoding order is fixed.
+// Fact/Value carry an observation (EventObserved): Fact is the fact key
+// (e.g. "eye_color"), Value its per-seed word. They stay empty on other kinds.
 type Event struct {
 	Kind     string   `json:"kind"`
 	To       string   `json:"to,omitempty"`
@@ -106,6 +114,8 @@ type Event struct {
 	Resource Resource `json:"resource,omitempty"`
 	Verb     string   `json:"verb,omitempty"`
 	Target   string   `json:"target,omitempty"`
+	Fact     string   `json:"fact,omitempty"`
+	Value    string   `json:"value,omitempty"`
 	Tick     uint64   `json:"tick"`
 	Round    uint64   `json:"round"`
 }

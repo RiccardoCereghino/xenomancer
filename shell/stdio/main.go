@@ -26,11 +26,20 @@ import (
 //
 //	{"v":1,"round":18,"narration":"...","holds":[...],"result":{"ok":true,"rejections":[]}}
 type ObservationPacket struct {
-	V         int           `json:"v"`
-	Round     int           `json:"round"`
-	Narration string        `json:"narration"`
-	Holds     []engine.Hold `json:"holds"`
-	Result    Result        `json:"result"`
+	V            int           `json:"v"`
+	Round        int           `json:"round"`
+	Narration    string        `json:"narration"`
+	Holds        []engine.Hold `json:"holds"`
+	Observations []Observation `json:"observations"`
+	Result       Result        `json:"result"`
+}
+
+// Observation mirrors an engine observed{fact,value} event for the agent. The
+// eye-color value appears here (and in narration) ONLY on the round the pond
+// reflection is inspected — never before (GDD §5.3).
+type Observation struct {
+	Fact  string `json:"fact"`
+	Value string `json:"value,omitempty"`
 }
 
 // Result reports whether the round resolved cleanly and lists any rejections.
@@ -109,6 +118,7 @@ func main() {
 
 func buildPacket(state engine.State, events []engine.Event, nar narration) ObservationPacket {
 	var rejections []Rejection
+	var observations []Observation
 	moved := false
 	waited := false
 	for i := 0; i < len(events); i++ {
@@ -121,6 +131,8 @@ func buildPacket(state engine.State, events []engine.Event, nar narration) Obser
 				Verb:     e.Verb,
 				Target:   e.Target,
 			})
+		case engine.EventObserved:
+			observations = append(observations, Observation{Fact: e.Fact, Value: e.Value})
 		case engine.EventMoved:
 			moved = true
 		case engine.EventWaited:
@@ -134,15 +146,23 @@ func buildPacket(state engine.State, events []engine.Event, nar narration) Obser
 	}
 
 	return ObservationPacket{
-		V:         engine.ProtocolVersion,
-		Round:     int(state.Round) + 1,
-		Narration: nar.render(state.Location, moved, waited, rejections),
-		Holds:     holds,
+		V:            engine.ProtocolVersion,
+		Round:        int(state.Round) + 1,
+		Narration:    nar.render(state.Location, moved, waited, observations, rejections),
+		Holds:        holds,
+		Observations: observationsOrEmpty(observations),
 		Result: Result{
 			OK:         len(rejections) == 0,
 			Rejections: valueOrEmpty(rejections),
 		},
 	}
+}
+
+func observationsOrEmpty(o []Observation) []Observation {
+	if o == nil {
+		return []Observation{}
+	}
+	return o
 }
 
 func valueOrEmpty(r []Rejection) []Rejection {
