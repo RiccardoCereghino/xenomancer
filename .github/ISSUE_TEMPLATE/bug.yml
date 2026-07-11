@@ -1,0 +1,46 @@
+name: Bug
+description: Something behaves against its spec. For an unfair death, use the dedicated form instead.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If an agent died in a way that was not telegraphed, attributable, and
+        fair (GDD P3), do not file this — file an **Unfair death** report, which
+        is a higher-priority bug class (`engine.unfair`, GDD §5.7).
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: The minimal steps or action log that triggers the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: seed
+    attributes:
+      label: Seed (if applicable)
+      description: The run seed. The seed is the world (GDD §2) — a repro without it may not reproduce.
+      placeholder: "0"
+    validations:
+      required: false
+  - type: input
+    id: content-hash
+    attributes:
+      label: Content hash (if applicable)
+      description: SHA-256 of the content pack (ADR-000 D5.5 / D6). A replay is valid only against its exact content hash.
+      placeholder: "sha256:…"
+    validations:
+      required: false

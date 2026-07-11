@@ -1,0 +1,73 @@
+name: Feature
+description: A mechanic, system, or content change that serves a design pillar.
+title: "feature: "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every feature must serve at least one pillar (GDD §2). A feature that
+        violates a pillar is cut, however attractive. Content ships only
+        attached to a mechanic it exercises (GDD §13).
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences — what this adds and why.
+    validations:
+      required: true
+  - type: textarea
+    id: refs
+    attributes:
+      label: GDD / ADR section references
+      description: >-
+        The design/technical sections this feature derives from
+        (e.g. "GDD §5.6 Hazards; ADR-000 D5 determinism laws"). Required —
+        a feature with no anchor in the source of truth does not ship.
+      placeholder: "GDD §…, ADR-000 D…"
+    validations:
+      required: true
+  - type: dropdown
+    id: pillar
+    attributes:
+      label: Pillar served
+      description: The primary design pillar this feature advances (GDD §2).
+      options:
+        - "P1 — The world is the referee, and the referee is public"
+        - "P2 — Knowledge is the only progression"
+        - "P3 — Fair doom"
+        - "P4 — Built for machines, legible to pilots"
+        - "P5 — Goofy surface, rigorous core"
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Spec & definition of done
+      description: >-
+        Enough detail that a coding session can implement from this issue
+        alone: behavior, edge cases, and the observable condition that means
+        "done".
+    validations:
+      required: true
+  - type: dropdown
+    id: determinism
+    attributes:
+      label: Determinism impact
+      description: >-
+        How this touches the deterministic reducer and its frozen surfaces
+        (ADR-000 D5). "touches-frozen-surface" means CanonicalBytes encoding or
+        the vendored PRNG — a breaking engine version.
+      options:
+        - "none"
+        - "state-affecting"
+        - "touches-frozen-surface"
+    validations:
+      required: true
+  - type: checkboxes
+    id: anti-scope
+    attributes:
+      label: Anti-scope check
+      options:
+        - label: I checked the anti-scope list (GDD §12) and this is not on it.
+          required: true

@@ -1,0 +1,56 @@
+name: Unfair death
+description: An agent died in a way that was not fair — a parser error or an untelegraphed hazard.
+title: "unfair-death: "
+labels: ["unfair-death", "determinism"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `engine.unfair` must stay at zero — these are the highest-priority bugs
+        in the project (GDD §5.7). Fair doom (P3) means every death is
+        attributable, telegraphed, and reported: misunderstanding never kills;
+        being understood and wrong does. A death that breaks that guarantee is
+        an engine bug, not a game event.
+  - type: input
+    id: seed
+    attributes:
+      label: Seed
+      description: The run seed (GDD §2, the seed is the world).
+      placeholder: "0"
+    validations:
+      required: true
+  - type: input
+    id: content-hash
+    attributes:
+      label: Content hash
+      description: SHA-256 of the content pack (ADR-000 D5.5 / D6).
+      placeholder: "sha256:…"
+    validations:
+      required: true
+  - type: textarea
+    id: replay
+    attributes:
+      label: Replay log or attachment
+      description: >-
+        The canonical action log (ADR-000 D6 replay file), pasted or attached.
+        Replay is exact — this is the proof object.
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: cause
+    attributes:
+      label: Engine-reported cause
+      description: The `cause` field from the death report (GDD §5.7), e.g. `hazard.wolf` or `social.claim_wrong`.
+    validations:
+      required: true
+  - type: textarea
+    id: why-unfair
+    attributes:
+      label: Why the death was unfair
+      description: >-
+        Which Pillar-3 guarantee broke — no telegraph ladder, a misparse that
+        killed, an unattributable cause? Point at the specific fairness law
+        (GDD P3, §5.3–§5.7).
+    validations:
+      required: true

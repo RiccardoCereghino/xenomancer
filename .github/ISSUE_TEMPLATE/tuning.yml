@@ -1,0 +1,52 @@
+name: Tuning
+description: A proposed change to a difficulty knob or content value, backed by evidence.
+title: "tuning: "
+labels: ["tuning"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Difficulty is authored, not emergent (GDD §3). Tuning changes ride on
+        evidence — deaths-to-clear on a fixed seed is the tuning signal (GDD
+        §8, §13). Values that fall out of playtesting live in [OPEN] items
+        (GDD §5.6, §13).
+  - type: input
+    id: zone
+    attributes:
+      label: Zone / location
+      description: Where this knob applies (e.g. forest_path, gate).
+    validations:
+      required: true
+  - type: dropdown
+    id: knob
+    attributes:
+      label: Knob
+      description: Which difficulty knob or content value (GDD §3, §5.6, §5.7).
+      options:
+        - "fuse length"
+        - "telegraph stages"
+        - "verbosity"
+        - "palette"
+    validations:
+      required: true
+  - type: input
+    id: current
+    attributes:
+      label: Current value
+    validations:
+      required: true
+  - type: input
+    id: proposed
+    attributes:
+      label: Proposed value
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: >-
+        Deaths-to-clear numbers, telegraph-latency metrics, or replay
+        references that justify the change (GDD §8).
+    validations:
+      required: true
