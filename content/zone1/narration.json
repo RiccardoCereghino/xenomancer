@@ -1,0 +1,16 @@
+{
+  "locations": {
+    "clearing": "You come to in a cold clearing. Dew on flattened grass, a silence that has not decided about you yet, and the fading memory of falling. There is no hazard here. A gap in the trees opens onto a forest path to the north.",
+    "forest_path": "A forest path threads north under bare branches. The treeline stands at your back like a held breath. Somewhere ahead the woods go deep."
+  },
+  "on_enter": "You move to the {location}. {description}",
+  "wait": "You wait. Six in-world seconds turn without you.",
+  "idle": "Nothing here has an opinion about you yet.",
+  "rejections": {
+    "resource_conflict": "Two claims land on one part of you at once. Nothing resolves; the round is handed back.",
+    "unknown_verb": "You attempt something the world has no grammar for. It does not happen.",
+    "unknown_target": "You reach for something that is not here.",
+    "unknown_resource": "That is not a part of you that answers to orders.",
+    "illegal_move": "There is no path that way."
+  }
+}
