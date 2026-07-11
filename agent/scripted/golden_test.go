@@ -2,6 +2,7 @@ package scripted_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/RiccardoCereghino/xenomancer/agent/scripted"
@@ -128,11 +129,16 @@ func TestGoldenReplayRejectsWrongContent(t *testing.T) {
 		t.Fatalf("ParseContent: %v", err)
 	}
 	ok, err := engine.Verify(golden, other)
-	if err != nil {
-		t.Fatalf("Verify: %v", err)
-	}
 	if ok {
 		t.Error("replay verified against content with a different hash")
+	}
+	// Must fail loudly with the distinct content-mismatch error, before folding
+	// the log — not silently as an ok==false final-hash mismatch (ADR-000 D6).
+	if err == nil {
+		t.Fatal("verifying against altered content must return an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "content mismatch") {
+		t.Errorf("expected a content-mismatch error, got: %v", err)
 	}
 }
 

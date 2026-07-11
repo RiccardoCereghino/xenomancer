@@ -6,10 +6,13 @@ import (
 	"encoding/hex"
 )
 
-// CanonicalBytes serializes State into a fixed, frozen field-order binary
-// encoding (ADR-000 D5.6). This is a frozen API: changing the layout changes
-// every state hash and is therefore a breaking engine version that orphans
-// existing replays (see Version).
+// CanonicalBytes serializes State into a fixed field-order binary encoding
+// (ADR-000 D5.6).
+//
+// This encoding is FROZEN. The field order and byte layout below must never
+// change: changing them changes every state hash, which is a breaking engine
+// version that orphans all existing replays (ADR-000 D5.6). Any such change
+// must bump Version and keep the old tag buildable.
 //
 // Encoding v1 (all integers big-endian):
 //

@@ -70,13 +70,22 @@ func Decode(data []byte) (Replay, error) {
 }
 
 // Verify re-executes a replay against a content pack and reports whether it
-// reproduces the recorded final_state_hash (ADR-000 D6). Verification fails
-// (ok == false) if the content does not match the replay's content_hash or if
-// the folded state hash differs. A non-nil error indicates programmer misuse
-// surfaced during the fold, not an invalid-but-well-formed replay.
+// reproduces the recorded final_state_hash (ADR-000 D6).
+//
+// It first checks the replay header's content_hash against the SHA-256 of the
+// content actually supplied and fails loudly with a distinct "content mismatch"
+// error BEFORE folding a single round — a replay is valid only against its
+// exact content (ADR-000 D6), and verifying against the wrong pack is a caller
+// error to surface plainly, not a silent final-hash mismatch.
+//
+// With matching content, ok reports whether the folded state hash equals the
+// recorded final_state_hash. A non-nil error from the fold indicates programmer
+// misuse (a malformed submission in the log), not an invalid-but-well-formed
+// replay.
 func Verify(r Replay, content Content) (bool, error) {
 	if r.Header.ContentHash != content.HashString() {
-		return false, nil
+		return false, fmt.Errorf("engine: content mismatch: replay expects content %s but supplied content is %s",
+			r.Header.ContentHash, content.HashString())
 	}
 	s := Init(r.Header.Seed, content)
 	for i := 0; i < len(r.Log); i++ {
