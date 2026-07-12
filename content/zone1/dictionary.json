@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "verbs": [
+    {"phrase": "walk", "verb": "perform", "resource": "legs"},
+    {"phrase": "walk to", "verb": "perform", "resource": "legs"},
+    {"phrase": "go", "verb": "perform", "resource": "legs"},
+    {"phrase": "go to", "verb": "perform", "resource": "legs"},
+    {"phrase": "move", "verb": "perform", "resource": "legs"},
+    {"phrase": "move to", "verb": "perform", "resource": "legs"},
+    {"phrase": "head", "verb": "perform", "resource": "legs"},
+    {"phrase": "head to", "verb": "perform", "resource": "legs"},
+
+    {"phrase": "look", "verb": "inspect", "resource": "attention"},
+    {"phrase": "look at", "verb": "inspect", "resource": "attention"},
+    {"phrase": "inspect", "verb": "inspect", "resource": "attention"},
+    {"phrase": "examine", "verb": "inspect", "resource": "attention"},
+    {"phrase": "observe", "verb": "inspect", "resource": "attention"},
+    {"phrase": "study", "verb": "inspect", "resource": "attention"},
+
+    {"phrase": "wait", "verb": "wait", "resource": "attention"},
+    {"phrase": "rest", "verb": "wait", "resource": "attention"},
+
+    {"phrase": "say", "verb": "talk", "resource": "voice"},
+    {"phrase": "talk", "verb": "talk", "resource": "voice"},
+    {"phrase": "talk to", "verb": "talk", "resource": "voice"},
+    {"phrase": "speak", "verb": "talk", "resource": "voice"},
+    {"phrase": "speak to", "verb": "talk", "resource": "voice"}
+  ],
+  "targets": [
+    {"phrase": "clearing", "target": "clearing"},
+    {"phrase": "the clearing", "target": "clearing"},
+
+    {"phrase": "forest path", "target": "forest_path"},
+    {"phrase": "the forest path", "target": "forest_path"},
+    {"phrase": "forest", "target": "forest_path"},
+    {"phrase": "the forest", "target": "forest_path"},
+    {"phrase": "path", "target": "forest_path"},
+    {"phrase": "the path", "target": "forest_path"},
+
+    {"phrase": "still pond", "target": "still_pond"},
+    {"phrase": "the still pond", "target": "still_pond"},
+    {"phrase": "pond", "target": "still_pond"},
+    {"phrase": "the pond", "target": "still_pond"},
+
+    {"phrase": "gate", "target": "gate"},
+    {"phrase": "the gate", "target": "gate"},
+
+    {"phrase": "self", "target": "self"},
+    {"phrase": "myself", "target": "self"},
+    {"phrase": "me", "target": "self"},
+
+    {"phrase": "reflection", "target": "reflection"},
+    {"phrase": "the reflection", "target": "reflection"},
+    {"phrase": "my reflection", "target": "reflection"},
+    {"phrase": "water", "target": "reflection"}
+  ]
+}
