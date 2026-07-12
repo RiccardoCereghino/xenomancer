@@ -49,6 +49,33 @@ Depends on **backlog 04** (parser + freeform shell input) and **backlog 05**
 - Uploads the **replay file and the death report** as workflow artifacts — the
   post-mortem is the deliverable and the publicity material (GDD §11).
 
+## Expectations: this is a data-gathering run, not the publicity artifact
+
+The **first frontier-model run is a data-gathering run, not the publicity
+post.** Its job is to produce raw material and expose tuning gaps — not to be
+the thing we ship to the AI/evals community. Setting this expectation up front
+keeps the milestone honest (GDD §11 minimum publicity unit is a *good* death
+report, not the first one).
+
+Concretely, expect **several tuning iterations between "first model meets the
+guard" and "a death report worth posting"** — the knobs likely to need turning:
+
+- **narration verbosity** (GDD §3) — too thin and there is no attention-under-
+  noise test; too thick and the model drowns in friction rather than the game;
+- **fuse numbers** (the wolf's 12, telegraph points 6/9/11 — all [OPEN] tuning
+  values, GDD §5.6, §13) — tuned so a naive agent dies *instructively*, not
+  instantly or never;
+- **dictionary coverage** (GDD §13) — thin coverage makes the agent fight the
+  *parser*, not the *game*; the rejection log is the backlog that closes this.
+
+**The publicity post is gated on the *cause* of the death, not on getting one.**
+A postable death is one whose cause is a **game failure — `recall.*` or
+`social.*`** (the agent was understood and wrong: it forgot its eye color or
+claimed the wrong one, the game's thesis, GDD §5.3/§5.4/P3). A death caused by
+**parser friction** (drowning in "I don't understand", or a timeout cascade —
+see the friction telemetry, backlog 07) is a **tuning signal, not a publicity
+artifact**: it means the dictionary/verbosity need work, and the post waits.
+
 ## Definition of done
 
 - The LLM agent plays a full episode via `cmd/run`, with every model reply
@@ -57,6 +84,14 @@ Depends on **backlog 04** (parser + freeform shell input) and **backlog 05**
   uploads replay + death report artifacts.
 - No token spend on normal push/PR CI — the hermetic scripted CI is untouched.
 - Stdlib-only HTTP client (no new third-party dependency).
+- **The showcase captures the full event stream *and* the friction telemetry**
+  (the death report's friction block + replay-header `meta`, backlog 07) as
+  artifacts — this is the raw data that drives the tuning iterations above and
+  tells a game-failure death apart from a parser-friction death.
+- **The DoD explicitly records the expectation** that this first run is for data
+  gathering, that tuning iterations (verbosity, fuse numbers, dictionary
+  coverage) are expected before a postable death, and that the publicity post is
+  gated on a `recall.*`/`social.*` cause, not parser friction.
 
 ## Setup note
 

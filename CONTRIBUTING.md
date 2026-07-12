@@ -23,6 +23,29 @@ Read those two before opening a PR — they are the source of truth.
    PR** — keep scope limited to the linked issue and leave the anti-scope list
    (GDD §12) untouched.
 
+## Phase & sprint vocabulary
+
+The repo grew two overlapping names for the same timeline — GDD **phases**
+(§12 roadmap) and **`sprint-N`** milestones — and they are off by one. This is
+the authoritative mapping of what is actually in the repo today:
+
+| GDD phase (§12) | Repo label / milestone | Where it lives |
+|---|---|---|
+| — (pre-slice foundation) | `sprint-0` | Walking skeleton: engine + determinism CI (README, DEVLOG). Shipped (PR #1). |
+| **Phase 0 — Vertical slice** | milestone `sprint-1 — woods to gate` | Zone 1: pond, wolf, guard, parser, runner. Backlog 01–06 / issues #3–#8. |
+| **Phase 1 — Magic** | milestone `sprint-2 — magic` | Hermit zone, Sparklight + Fireball. |
+| **Phase 2 — Town & contracts** | *(no milestone yet)* | Zone 2, negotiation, structural variance; publicity post. |
+| **Phase 3 — Leaderboard & seasons** | *(no milestone yet)* | Replay-as-proof verification, sealed season, HTTP shell. |
+| **Phase 4 — Steam** | *(no milestone yet)* | Spectator client, official seasons, opt-in inflation. |
+| **Someday** | *(no milestone yet)* | Per-seed procedures tier; MMO shell. |
+
+**Session prompts and issues must use GDD phase numbers; `sprint-N` is
+deprecated outside historical DEVLOG entries and the two existing milestones
+above.** Do not renumber the existing `sprint-1`/`sprint-2` milestones — they are
+in flight and their renaming would break `repo-sync.yml` and orphan open issues.
+New backlog specs cite the GDD phase in their body rather than a `sprint-N`
+milestone.
+
 ## Determinism laws (summary)
 
 The engine is a pure, seeded, deterministic reducer so that replays are proofs
