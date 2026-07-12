@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "verbs": {
+    "wait": {"verb": "wait", "resource": "attention"},
+    "hold": {"verb": "wait", "resource": "attention"},
+    "look": {"verb": "inspect", "resource": "attention"},
+    "inspect": {"verb": "inspect", "resource": "attention"},
+    "examine": {"verb": "inspect", "resource": "attention"},
+    "study": {"verb": "inspect", "resource": "attention"},
+    "observe": {"verb": "inspect", "resource": "attention"},
+    "move": {"verb": "perform", "resource": "legs"},
+    "go": {"verb": "perform", "resource": "legs"},
+    "walk": {"verb": "perform", "resource": "legs"},
+    "head": {"verb": "perform", "resource": "legs"},
+    "travel": {"verb": "perform", "resource": "legs"},
+    "talk": {"verb": "talk", "resource": "voice"},
+    "say": {"verb": "talk", "resource": "voice"},
+    "speak": {"verb": "talk", "resource": "voice"}
+  },
+  "targets": {
+    "clearing": "clearing",
+    "forest path": "forest_path",
+    "forest": "forest_path",
+    "path": "forest_path",
+    "still pond": "still_pond",
+    "pond": "still_pond",
+    "water": "still_pond",
+    "gate": "gate",
+    "wall": "gate",
+    "reflection": "reflection",
+    "my reflection": "reflection",
+    "self": "self",
+    "myself": "self"
+  }
+}

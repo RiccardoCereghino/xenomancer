@@ -51,11 +51,18 @@ jobs:
           echo "determinism OK: golden replay reproduced identically"
 
   # Guard: fail if math/rand, time., float32, or float64 appear under /engine
-  # (ADR-000 D5 CI enforcement (c)).
+  # (ADR-000 D5 CI enforcement (c)), and if the engine imports the quarantined
+  # parser (ADR-000 D3/D4 — the parser must stay off the replay path).
   guard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
       - name: Determinism lint guard
         shell: bash
         run: ./scripts/check-determinism.sh
+      - name: Parser quarantine guard
+        shell: bash
+        run: ./scripts/check-engine-imports.sh
