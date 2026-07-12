@@ -1,6 +1,12 @@
 {
   "start_location": "clearing",
   "eye_color_palette": ["blue", "green", "brown", "grey"],
+  "epitaphs": [
+    "He was sure his eyes were {claimed}. The pond, unbothered, remains {truth}.",
+    "\"{claimed},\" he swore to the guard — and the wall wrote {truth} on his stone.",
+    "He gambled on {claimed}. The ledger of his eyes had always read {truth}.",
+    "The guard heard {claimed}; the truth, patient as the gate itself, was {truth}."
+  ],
   "locations": [
     {
       "id": "clearing",
@@ -18,7 +24,8 @@
     },
     {
       "id": "gate",
-      "exits": ["forest_path"]
+      "exits": ["forest_path"],
+      "npcs": [{"id": "gate_guard", "asks": "eye_color"}]
     }
   ]
 }

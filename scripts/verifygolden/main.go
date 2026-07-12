@@ -1,8 +1,9 @@
-// Command verifygolden replays the committed golden log against the zone-1
-// content, verifies it reproduces the recorded final_state_hash, and prints
-// that hash to stdout (ADR-000 D6). The determinism CI job runs it twice, in
-// separate processes, and asserts the two printed hashes are identical — the
-// machine-checkable form of "replay-as-proof".
+// Command verifygolden replays the committed golden logs against the zone-1
+// content, verifies each reproduces its recorded final_state_hash, and prints
+// those hashes to stdout in order (ADR-000 D6). The determinism CI job runs it
+// twice, in separate processes, and asserts the two printed outputs are
+// identical — the machine-checkable form of "replay-as-proof". Both slice
+// endings are pinned: the win golden (seed 1) and the death golden (seed 0).
 package main
 
 import (
@@ -11,6 +12,12 @@ import (
 
 	"github.com/RiccardoCereghino/xenomancer/engine"
 )
+
+// goldens are the committed replay fixtures, verified in this fixed order.
+var goldens = []string{
+	"agent/scripted/testdata/golden_replay.json",       // win path, seed 1
+	"agent/scripted/testdata/golden_death_replay.json", // death path, seed 0
+}
 
 func main() {
 	mapBytes, err := os.ReadFile("content/zone1/map.json")
@@ -22,25 +29,25 @@ func main() {
 		fatal("parse content: %v", err)
 	}
 
-	replayBytes, err := os.ReadFile("agent/scripted/testdata/golden_replay.json")
-	if err != nil {
-		fatal("read golden replay: %v", err)
+	for _, path := range goldens {
+		replayBytes, err := os.ReadFile(path)
+		if err != nil {
+			fatal("read %s: %v", path, err)
+		}
+		replay, err := engine.Decode(replayBytes)
+		if err != nil {
+			fatal("decode %s: %v", path, err)
+		}
+		ok, err := engine.Verify(replay, content)
+		if err != nil {
+			fatal("verify %s: %v", path, err)
+		}
+		if !ok {
+			fatal("%s failed verification: final_state_hash mismatch", path)
+		}
+		// Print the reproduced hash for the CI job to compare across runs.
+		fmt.Println(replay.FinalStateHash)
 	}
-	replay, err := engine.Decode(replayBytes)
-	if err != nil {
-		fatal("decode golden replay: %v", err)
-	}
-
-	ok, err := engine.Verify(replay, content)
-	if err != nil {
-		fatal("verify: %v", err)
-	}
-	if !ok {
-		fatal("golden replay failed verification: final_state_hash mismatch")
-	}
-
-	// Print the reproduced hash for the CI job to compare across runs.
-	fmt.Println(replay.FinalStateHash)
 }
 
 func fatal(format string, args ...any) {

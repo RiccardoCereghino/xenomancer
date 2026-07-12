@@ -17,8 +17,9 @@ import "encoding/json"
 
 // Version is the engine version stamped into replay headers (ADR-000 D6).
 // Changing CanonicalBytes or the vendored PRNG is a breaking change and must
-// bump this.
-const Version = "0.1.0"
+// bump this. 0.2.0 added the terminal outcome (Outcome/Cause) to the frozen
+// CanonicalBytes encoding — the gate guard's win/death (GDD §5.7, §7).
+const Version = "0.2.0"
 
 // ProtocolVersion is the wire-protocol version. Every line carries "v": 1
 // (ADR-000 D4).
@@ -54,12 +55,33 @@ const (
 	ReasonUnknownResource  = "unknown_resource"
 	ReasonUnknownTarget    = "unknown_target"
 	ReasonIllegalMove      = "illegal_move"
+	// ReasonUnclearClaim is the guard's response to a talk claim that names
+	// zero or several palette words (GDD §5.4). It costs one round and NEVER
+	// kills — the round still resolves and ticks.
+	ReasonUnclearClaim = "unclear_claim"
+)
+
+// Death causes (GDD §5.7 cause taxonomy). CauseClaimWrong is the first
+// contextual/social class: a legal, understood, wrong eye-color claim at the
+// gate — a fair death (P3).
+const (
+	CauseClaimWrong = "social.claim_wrong"
+)
+
+// Outcome is the terminal state of an episode. The empty string means the
+// episode is ongoing; once set, the episode has ended (GDD §5.7, §7) and Reduce
+// is a no-op. Outcome is part of CanonicalBytes so a win and a death that end at
+// the same location/round hash differently (ADR-000 D5.6).
+const (
+	OutcomeWon  = "won"
+	OutcomeDied = "died"
 )
 
 // Event kinds emitted by Reduce. Events are the only seam between the reducer
 // and every downstream consumer — narrator, scoring, spectator, replay
-// (ADR-000 D2). This sprint emits moved, waited, rejected, and observed; the
-// remaining kinds (telegraph, ritual_step, died) arrive with later content.
+// (ADR-000 D2). This sprint emits moved, waited, rejected, observed, and the
+// terminal died/won; the remaining kinds (telegraph, ritual_step) arrive with
+// later content.
 const (
 	EventMoved    = "moved"
 	EventWaited   = "waited"
@@ -70,11 +92,18 @@ const (
 	// observed fact is the agent's responsibility, never the engine's — the
 	// reducer stores no observation in State, only emits the event.
 	EventObserved = "observed"
+	// EventDied is the terminal death event: it carries a full DeathReport in
+	// Event.Report and ends the episode (GDD §5.7, ADR-000 D2 died{report}).
+	EventDied = "died"
+	// EventWon is the terminal win event: the agent is inside the walls
+	// (GDD §7). Its Round stamps the rounds elapsed.
+	EventWon = "won"
 )
 
 // Action is a single resource claim within a round (ADR-000 D4). Args is
-// carried verbatim as raw JSON so the reducer never iterates a decoded map;
-// it is unused this sprint.
+// carried verbatim as raw JSON; the reducer decodes it into a fixed struct, never
+// a map, so no rule depends on iteration order. The gate-guard talk is the first
+// user: it reads the claim from Args ({"say":"..."}), matched against the palette.
 type Action struct {
 	Resource Resource        `json:"resource"`
 	Verb     string          `json:"verb"`
@@ -107,18 +136,49 @@ type Hold struct {
 // round. Fields are flat and typed (no maps) so the encoding order is fixed.
 // Fact/Value carry an observation (EventObserved): Fact is the fact key
 // (e.g. "eye_color"), Value its per-seed word. They stay empty on other kinds.
+// Report carries the death report on EventDied and is nil otherwise. Events are
+// re-derived on replay and never enter CanonicalBytes, so the nested Report does
+// not affect the state hash (ADR-000 D3).
 type Event struct {
-	Kind     string   `json:"kind"`
-	To       string   `json:"to,omitempty"`
-	Reason   string   `json:"reason,omitempty"`
-	Resource Resource `json:"resource,omitempty"`
-	Verb     string   `json:"verb,omitempty"`
-	Target   string   `json:"target,omitempty"`
-	Fact     string   `json:"fact,omitempty"`
-	Value    string   `json:"value,omitempty"`
-	Tick     uint64   `json:"tick"`
-	Round    uint64   `json:"round"`
+	Kind     string       `json:"kind"`
+	To       string       `json:"to,omitempty"`
+	Reason   string       `json:"reason,omitempty"`
+	Resource Resource     `json:"resource,omitempty"`
+	Verb     string       `json:"verb,omitempty"`
+	Target   string       `json:"target,omitempty"`
+	Fact     string       `json:"fact,omitempty"`
+	Value    string       `json:"value,omitempty"`
+	Report   *DeathReport `json:"report,omitempty"`
+	Tick     uint64       `json:"tick"`
+	Round    uint64       `json:"round"`
 }
+
+// DeathReport is the structured post-mortem emitted on EventDied (GDD §5.7). It
+// is a first-class packet — the centaur loop runs on it — and is delivered as
+// the terminal packet (ADR-000 D4). All fields are typed and ordered (no maps)
+// so the encoding is deterministic.
+type DeathReport struct {
+	Cause             string          `json:"cause"`
+	Detail            DeathDetail     `json:"detail"`
+	Round             uint64          `json:"round"`
+	TelegraphsIgnored []string        `json:"telegraphs_ignored"`
+	RitualProgress    *RitualProgress `json:"ritual_progress"`
+	Epitaph           string          `json:"epitaph"`
+}
+
+// DeathDetail is the cause-specific detail of a death. For social.claim_wrong it
+// records the NPC, what it asked, what the agent claimed, and the truth.
+type DeathDetail struct {
+	NPC     string `json:"npc"`
+	Asked   string `json:"asked"`
+	Claimed string `json:"claimed"`
+	Truth   string `json:"truth"`
+}
+
+// RitualProgress is the ritual state of a procedural death (Phase 1). No ritual
+// deaths exist this sprint, so DeathReport.RitualProgress is always nil and
+// serializes to null.
+type RitualProgress struct{}
 
 // State is the full world state. It is derived entirely from the seed and the
 // canonical action log (ADR-000 D3): Init produces the initial State and each
@@ -133,7 +193,16 @@ type State struct {
 	Round    uint64
 	Location string
 	Holds    []Hold
-	Content  Content
+
+	// Outcome is the terminal state ("" ongoing, OutcomeWon, OutcomeDied); once
+	// non-empty the episode has ended and Reduce is a no-op. Cause is the death
+	// cause (GDD §5.7 taxonomy), set only on OutcomeDied. Both are part of
+	// CanonicalBytes (appended in encoding v2) so the outcome is part of the
+	// replay proof — a win and a death do not hash alike.
+	Outcome string
+	Cause   string
+
+	Content Content
 }
 
 func isValidResource(r Resource) bool {

@@ -15,8 +15,35 @@ clearing → forest_path → gate
 - `forest_path` — hub; exits to `clearing`, `still_pond`, `gate`. (The wolf
   fuse is backlog 02.)
 - `still_pond` — `inspect reflection` observes the per-seed **eye color**
-  (GDD §5.3). This is the "plant" the gate guard later checks (backlog 03).
-- `gate` — exits to `forest_path`. (The guard interrogation is backlog 03.)
+  (GDD §5.3). This is the "plant" the gate guard checks at the gate.
+- `gate` — exits to `forest_path`; home of the **gate guard** NPC. `talk` on
+  `voice` triggers the lethal eye-color interrogation (GDD §5.4, §7).
+
+## The gate guard (lethal social check)
+
+The `gate_guard` NPC (`npcs: [{"id":"gate_guard","asks":"eye_color"}]`) asks the
+agent's eye color. Judgment is closed-palette keyword matching against the same
+frozen palette — **no LLM on the lethal path** (GDD §5.4, P1). The reply text
+rides in the `talk` action's `args` (`{"say":"..."}`); freeform parsing is
+backlog 04.
+
+| Reply names… | Result |
+|---|---|
+| exactly one palette word == the per-seed truth | **win** — inside the walls (GDD §7) |
+| exactly one palette word, wrong | **death** — `social.claim_wrong` + death report |
+| zero or several palette words | "Speak plainly, stranger." — costs one round, **never kills** |
+
+## Epitaphs (death-report prose)
+
+The `epitaphs` list holds the death-report templates (GDD §5.7). Selection is
+per-seed and deterministic — `SplitMix64(Subseed(seed, "narration.epitaph")).Next()
+% len(epitaphs)` indexes the **frozen-order** slice — with `{claimed}`/`{truth}`
+filled from the death detail. Epitaphs live in engine content (not narration)
+because the reducer emits them inside the structured `died{report}`.
+
+**Canonical:** seed 0's death (claimed `green`, truth `grey`) selects index 0 and
+renders the reference line *"He was sure his eyes were green. The pond,
+unbothered, remains grey."* (GDD §5.7).
 
 ## Per-seed fact: eye color
 

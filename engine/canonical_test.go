@@ -30,10 +30,32 @@ func TestCanonicalBytesFieldOrderIsFrozen(t *testing.T) {
 		0, 0, 0, 9, // len("mana_hold")
 		'm', 'a', 'n', 'a', '_', 'h', 'o', 'l', 'd',
 		0, 0, 0, 0, 0, 0, 0, 12, // Since
+		0, 0, 0, 0, // len(Outcome) = 0 (ongoing) — appended in encoding v2
+		0, 0, 0, 0, // len(Cause) = 0 — appended in encoding v2
 	}
 	got := s.CanonicalBytes()
 	if !bytes.Equal(got, want) {
 		t.Errorf("CanonicalBytes layout drifted.\n got: %v\nwant: %v", got, want)
+	}
+}
+
+// A won state and a died state that are otherwise identical (same seed, tick,
+// round, location) must hash differently — the whole reason the terminal outcome
+// is part of CanonicalBytes (ADR-000 D5.6). Without it, replay-as-proof could not
+// tell a win from a death at the gate.
+func TestStateHashDistinguishesOutcomes(t *testing.T) {
+	base := State{Seed: 1, Tick: 6, Round: 6, Location: "gate"}
+	won := base
+	won.Outcome = OutcomeWon
+	died := base
+	died.Outcome = OutcomeDied
+	died.Cause = CauseClaimWrong
+
+	if base.StateHash() == won.StateHash() {
+		t.Error("won outcome must change the state hash")
+	}
+	if won.StateHash() == died.StateHash() {
+		t.Error("won and died must hash differently")
 	}
 }
 

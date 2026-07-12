@@ -8,6 +8,7 @@
   "on_enter": "You move to the {location}. {description}",
   "wait": "You wait. Six in-world seconds turn without you.",
   "idle": "Nothing here has an opinion about you yet.",
+  "won": "The guard studies you a moment, then grunts and stands aside. You pass beneath the stone gate. You are inside the walls.",
   "observations": {
     "eye_color": "The pond settles to a mirror. Your reflection meets you, and your eyes are, unmistakably, {value}. Fix it in memory — somewhere ahead, someone will ask, and will not ask twice.",
     "self": "You take stock of yourself: two arms, the right count of fingers, a scout's frame the Duchy would burn on sight. Your hair is a plain travel-matted mess. Of your own eyes you can learn nothing here — no still surface holds them."
@@ -17,6 +18,7 @@
     "unknown_verb": "You attempt something the world has no grammar for. It does not happen.",
     "unknown_target": "You reach for something that is not here.",
     "unknown_resource": "That is not a part of you that answers to orders.",
-    "illegal_move": "There is no path that way."
+    "illegal_move": "There is no path that way.",
+    "unclear_claim": "Speak plainly, stranger."
   }
 }

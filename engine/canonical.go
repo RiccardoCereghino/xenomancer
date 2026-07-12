@@ -14,7 +14,7 @@ import (
 // version that orphans all existing replays (ADR-000 D5.6). Any such change
 // must bump Version and keep the old tag buildable.
 //
-// Encoding v1 (all integers big-endian):
+// Encoding v2 (all integers big-endian):
 //
 //  1. Seed      : uint64                      (8 bytes)
 //  2. Tick      : uint64                      (8 bytes)
@@ -24,6 +24,12 @@ import (
 //     Resource : uint32 length + UTF-8 bytes
 //     Tag      : uint32 length + UTF-8 bytes
 //     Since    : uint64                      (8 bytes)
+//  6. Outcome   : uint32 length + UTF-8 bytes  (empty while ongoing)
+//  7. Cause     : uint32 length + UTF-8 bytes  (empty unless died)
+//
+// Fields 6-7 were appended in v2 (engine 0.2.0) for the terminal outcome
+// (GDD §5.7, §7). Appending is still a frozen-encoding change — it moves every
+// hash — so it bumped Version and superseded the goldens (ADR-000 D5.6).
 //
 // Content is intentionally NOT encoded: content identity is tracked separately
 // by content hash in the replay header (ADR-000 D5.5 / D6).
@@ -39,6 +45,8 @@ func (s State) CanonicalBytes() []byte {
 		b = appendString(b, s.Holds[i].Tag)
 		b = appendUint64(b, s.Holds[i].Since)
 	}
+	b = appendString(b, s.Outcome)
+	b = appendString(b, s.Cause)
 	return b
 }
 
