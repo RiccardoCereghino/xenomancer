@@ -40,13 +40,16 @@ func TestGoldenReplay(t *testing.T) {
 		t.Fatalf("BuildReplay: %v", err)
 	}
 
-	// The scripted agent walks the full slice and ends at the gate
-	// (clearing -> forest_path -> still_pond, inspect, -> forest_path -> gate).
+	// The scripted agent walks the full slice, inspects the pond, reaches the
+	// gate, and claims the correct color (seed 1 = brown) — a win at round 6.
 	if final.Location != "gate" {
 		t.Errorf("final location = %q, want gate", final.Location)
 	}
-	if final.Round != 5 || final.Tick != 5 {
-		t.Errorf("final round/tick = %d/%d, want 5/5", final.Round, final.Tick)
+	if final.Round != 6 || final.Tick != 6 {
+		t.Errorf("final round/tick = %d/%d, want 6/6", final.Round, final.Tick)
+	}
+	if final.Outcome != engine.OutcomeWon {
+		t.Errorf("final outcome = %q, want %q", final.Outcome, engine.OutcomeWon)
 	}
 
 	// 2. Verify the replay reproduces its own final hash.
@@ -139,6 +142,63 @@ func TestGoldenReplayRejectsWrongContent(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "content mismatch") {
 		t.Errorf("expected a content-mismatch error, got: %v", err)
+	}
+}
+
+// deathGoldenSeed is the canonical world (GDD §3): its eye color is grey, so a
+// claim of green is a fair death reproducing the GDD §5.7 example.
+const deathGoldenSeed = 0
+
+// TestDeathGoldenReplay runs the death-path scripted agent (seed 0: straight to
+// the gate, claim green while the truth is grey), verifies the replay, and pins
+// it against the committed death golden. The terminal state records the death.
+func TestDeathGoldenReplay(t *testing.T) {
+	c := loadContent(t)
+	log := scripted.DeathScript()
+
+	replay, final, err := engine.BuildReplay(deathGoldenSeed, c, log, "scripted")
+	if err != nil {
+		t.Fatalf("BuildReplay: %v", err)
+	}
+	if final.Location != "gate" {
+		t.Errorf("final location = %q, want gate", final.Location)
+	}
+	if final.Round != 3 || final.Tick != 3 {
+		t.Errorf("final round/tick = %d/%d, want 3/3", final.Round, final.Tick)
+	}
+	if final.Outcome != engine.OutcomeDied {
+		t.Errorf("final outcome = %q, want %q", final.Outcome, engine.OutcomeDied)
+	}
+	if final.Cause != engine.CauseClaimWrong {
+		t.Errorf("final cause = %q, want %q", final.Cause, engine.CauseClaimWrong)
+	}
+
+	ok, err := engine.Verify(replay, c)
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if !ok {
+		t.Fatal("freshly built death replay failed verification")
+	}
+
+	goldenBytes, err := os.ReadFile("testdata/golden_death_replay.json")
+	if err != nil {
+		t.Fatalf("read death golden: %v", err)
+	}
+	golden, err := engine.Decode(goldenBytes)
+	if err != nil {
+		t.Fatalf("decode death golden: %v", err)
+	}
+	if golden.FinalStateHash != replay.FinalStateHash {
+		t.Errorf("death golden final_state_hash %s != rebuilt %s (canonical encoding drift?)",
+			golden.FinalStateHash, replay.FinalStateHash)
+	}
+	ok, err = engine.Verify(golden, c)
+	if err != nil {
+		t.Fatalf("Verify(death golden): %v", err)
+	}
+	if !ok {
+		t.Error("committed death golden replay failed verification")
 	}
 }
 

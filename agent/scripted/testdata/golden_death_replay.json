@@ -3,7 +3,7 @@
     "engine_version": "0.2.0",
     "protocol_version": 1,
     "content_hash": "sha256:737d5c995fbdb7dfbb9a0e2ddcacd8510052bc6376ac69d59b76392b74a7b029",
-    "seed": 1,
+    "seed": 0,
     "bracket": "scripted"
   },
   "log": [
@@ -25,7 +25,7 @@
         {
           "resource": "legs",
           "verb": "perform",
-          "target": "still_pond"
+          "target": "gate"
         }
       ]
     },
@@ -34,48 +34,15 @@
       "round": 3,
       "actions": [
         {
-          "resource": "attention",
-          "verb": "inspect",
-          "target": "reflection"
-        }
-      ]
-    },
-    {
-      "v": 1,
-      "round": 4,
-      "actions": [
-        {
-          "resource": "legs",
-          "verb": "perform",
-          "target": "forest_path"
-        }
-      ]
-    },
-    {
-      "v": 1,
-      "round": 5,
-      "actions": [
-        {
-          "resource": "legs",
-          "verb": "perform",
-          "target": "gate"
-        }
-      ]
-    },
-    {
-      "v": 1,
-      "round": 6,
-      "actions": [
-        {
           "resource": "voice",
           "verb": "talk",
           "target": "gate_guard",
           "args": {
-            "say": "brown"
+            "say": "green"
           }
         }
       ]
     }
   ],
-  "final_state_hash": "sha256:7de18c17673be07208ea4c8f4600e3d69e15c72cddd94a0f82e2052273bc74aa"
+  "final_state_hash": "sha256:7044ef6b788fbd70b8f28b837dc640ee84f50678166208ee81dfb146610dafab"
 }

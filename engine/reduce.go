@@ -1,6 +1,9 @@
 package engine
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Init produces the initial State for a run from a seed and a content pack
 // (ADR-000 D1). It is pure: same inputs, same State, forever.
@@ -31,6 +34,14 @@ func Init(seed uint64, content Content) State {
 //     and round counters exactly once — even if every action was rejected, the
 //     round was still spent.
 func Reduce(s State, sub RoundSubmission) (State, []Event, error) {
+	// The episode is over once an outcome is set (GDD §5.7, §7): a dead or
+	// winning agent takes no further rounds. Terminality is sticky — no tick, no
+	// events, no error — so a log with rounds past the terminal one folds to the
+	// same state (ADR-000 D3).
+	if s.Outcome != "" {
+		return s, nil, nil
+	}
+
 	// D1: programmer-misuse guard. Every action must name a resource and a
 	// verb; an empty field is a malformed struct, not an in-game choice.
 	for i := 0; i < len(sub.Actions); i++ {
@@ -125,12 +136,59 @@ func Reduce(s State, sub RoundSubmission) (State, []Event, error) {
 			events = append(events, ev)
 
 		case VerbTalk:
-			// No NPCs exist in zone 1 this sprint (the gate guard arrives in
-			// backlog 03). Every talk target is therefore unknown.
-			events = append(events, rejection(ns, a, ReasonUnknownTarget))
+			// A talk addresses an NPC at the current location (GDD §5.4). The
+			// gate guard is the first: it interrogates the agent's eye color and
+			// judges the claim on the lethal path — no LLM, closed-palette
+			// keyword matching only (GDD §5.4, P1). Any other target is unknown.
+			npc, ok := ns.Content.npc(ns.Location, a.Target)
+			if !ok {
+				events = append(events, rejection(ns, a, ReasonUnknownTarget))
+				continue
+			}
+			// The reply text rides in Args ({"say":"..."}); freeform parsing is
+			// backlog 04, so the canonical claim is matched against the palette
+			// directly. A missing/malformed Args decodes to an empty reply, which
+			// names zero palette words → "speak plainly".
+			var claimArgs struct {
+				Say string `json:"say"`
+			}
+			if len(a.Args) > 0 {
+				_ = json.Unmarshal(a.Args, &claimArgs)
+			}
+			claim, matches := matchClaim(ns.Content.EyeColorPalette, claimArgs.Say)
+			if matches != 1 {
+				// Zero or several palette words: costs one round, never kills.
+				events = append(events, rejection(ns, a, ReasonUnclearClaim))
+				continue
+			}
+			truth := ns.Content.eyeColor(ns.Seed)
+			if claim == truth {
+				ns.Outcome = OutcomeWon
+				events = append(events, Event{
+					Kind:  EventWon,
+					Tick:  ns.Tick,
+					Round: ns.Round + 1, // rounds elapsed after this round resolves
+				})
+			} else {
+				ns.Outcome = OutcomeDied
+				ns.Cause = CauseClaimWrong
+				report := ns.Content.deathReport(ns.Seed, npc.ID, npc.Asks, claim, truth, ns.Round+1)
+				events = append(events, Event{
+					Kind:   EventDied,
+					Tick:   ns.Tick,
+					Round:  ns.Round + 1,
+					Report: &report,
+				})
+			}
 
 		default:
 			events = append(events, rejection(ns, a, ReasonUnknownVerb))
+		}
+
+		// A win or a death ends the episode mid-round: no later action in this
+		// submission resolves, though the round itself is still spent (one tick).
+		if ns.Outcome != "" {
+			break
 		}
 	}
 

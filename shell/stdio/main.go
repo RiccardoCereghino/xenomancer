@@ -57,6 +57,24 @@ type Rejection struct {
 	Target   string `json:"target,omitempty"`
 }
 
+// WonPacket is the terminal packet on a win (ADR-000 D4): the agent is inside
+// the walls (GDD §7). Round carries the rounds elapsed.
+type WonPacket struct {
+	V         int    `json:"v"`
+	Outcome   string `json:"outcome"`
+	Round     uint64 `json:"round"`
+	Narration string `json:"narration"`
+}
+
+// DeathPacket is the terminal packet on a death: the full GDD §5.7 death report
+// (embedded, so its fields sit at the top level) plus the protocol "v" and the
+// outcome. The epitaph is the death prose, so there is no separate narration.
+type DeathPacket struct {
+	V       int    `json:"v"`
+	Outcome string `json:"outcome"`
+	engine.DeathReport
+}
+
 func main() {
 	contentDir := flag.String("content", "content/zone1", "directory holding map.json and narration.json")
 	seed := flag.Uint64("seed", 1, "run seed")
@@ -132,6 +150,17 @@ func main() {
 		}
 		state = next
 
+		// A died/won event ends the episode: emit the terminal packet (the death
+		// report or the win) instead of an observation packet and stop reading —
+		// no further rounds resolve (ADR-000 D4).
+		if terminal, ok := terminalPacket(state, events, nar); ok {
+			if err := enc.Encode(terminal); err != nil {
+				fatal("encode terminal packet: %v", err)
+			}
+			out.Flush()
+			break
+		}
+
 		packet := buildPacket(state, events, nar)
 		if err := enc.Encode(packet); err != nil {
 			fatal("encode packet: %v", err)
@@ -197,6 +226,35 @@ func parseRejectionPacket(state engine.State) ObservationPacket {
 			Rejections: []Rejection{{Reason: "not_understood"}},
 		},
 	}
+}
+
+// terminalPacket returns the terminal packet for a resolved round and true when
+// the round ended the episode (a died or won event), or (nil, false) otherwise.
+// It scans events by kind only (no maps), so the packet order is fixed.
+func terminalPacket(state engine.State, events []engine.Event, nar narration) (any, bool) {
+	for i := 0; i < len(events); i++ {
+		switch events[i].Kind {
+		case engine.EventWon:
+			return WonPacket{
+				V:         engine.ProtocolVersion,
+				Outcome:   engine.OutcomeWon,
+				Round:     events[i].Round,
+				Narration: nar.Won,
+			}, true
+		case engine.EventDied:
+			// The reducer always attaches a Report to a died event; guard the
+			// pointer so a malformed event can never nil-panic the shell.
+			if events[i].Report == nil {
+				continue
+			}
+			return DeathPacket{
+				V:           engine.ProtocolVersion,
+				Outcome:     engine.OutcomeDied,
+				DeathReport: *events[i].Report,
+			}, true
+		}
+	}
+	return nil, false
 }
 
 func holdsOrEmpty(h []engine.Hold) []engine.Hold {

@@ -4,6 +4,30 @@ Convention: one entry per working day, newest first. Entries are appended by the
 
 ---
 
+## 2026-07-12 — Issue 05: gate guard interrogation, win condition & death reports
+
+Closes the slice loop. Implements the "lethal check" half (GDD §7): the gate guard interrogates the agent's eye color, a correct claim wins, a wrong one is a fair death (P3) — the first `contextual`/`social` death class. Rebased onto the parser-v1 merge (backlog 04); the shell now routes both freeform lines (parser) and the terminal died/won packets.
+
+**Shipped**
+- **Gate guard NPC** at the gate (`npcs: [{"id":"gate_guard","asks":"eye_color"}]`). `talk` on `voice` triggers the interrogation. Judgment is closed-palette keyword matching by ordered string containment against the same frozen palette as the pond — **no LLM on the lethal path** (GDD §5.4, P1). The claim rides in the action `args` (`{"say":"..."}`); freeform parsing stays backlog 04. Exactly one palette word is a claim; zero or several → "Speak plainly, stranger." (costs one round, **never kills**); one and correct → win; one and wrong → death.
+- **Terminal outcome in State.** New `Outcome` (`""`/`won`/`died`) + `Cause` fields, **appended to the frozen `CanonicalBytes` (encoding v2)** so a win and a death at the same gate/round hash differently — replay-as-proof can tell the endings apart. Once set, `Reduce` is a sticky no-op. New event kinds `died{report}` / `won`; new rejection reason `unclear_claim`.
+- **Death report** (GDD §5.7) as the terminal packet: `cause`, `detail{npc,asked,claimed,truth}`, `round`, `telegraphs_ignored: []`, `ritual_progress: null`, `epitaph`. **Epitaph templates live in engine content** (`epitaphs` in `map.json`), selected per-seed via `SplitMix64(Subseed(seed, "narration.epitaph")).Next() % len` over a frozen-order slice, `{claimed}`/`{truth}` filled by the reducer. The win packet carries `outcome` + rounds elapsed; the stdio shell emits both terminal packets and stops.
+- **Two scripted goldens** — the win path (seed 1: inspect pond → gate → claim brown → won, 6 rounds) and the death path (seed 0: straight to the gate → claim green while truth is grey → died, 3 rounds). `verifygolden` now verifies both; the death golden reproduces the canonical GDD §5.7 line exactly.
+- Tests: correct-claim win; wrong-claim death with a fully populated report; zero/several palette words never kill; guard only at the gate; post-terminal `Reduce` is a no-op; `matchClaim` ordered-containment; epitaph determinism + canonical seed-0 line; win/death state-hash distinguishability; shell win/death/speak-plainly packets. Determinism guard still green (ordered slices, integer-only).
+
+**Decisions of record**
+- **Engine `Version` 0.1.0 → 0.2.0.** The terminal outcome is part of the replay proof, so it belongs in `CanonicalBytes`; appending it is a frozen-encoding change and bumps the version (ADR-000 D5.6). Death/win are terminal in the engine (sticky), not just a shell concern.
+- Epitaphs are **engine content**, not shell narration — the reducer emits them inside the structured `died{report}` (ADR-000 D2/D4), so their selection must be deterministic and seed-derived like any other per-seed fact.
+- "Speak plainly" reuses the rejection→narration pipeline (`unclear_claim`): it ticks like any resolved round, so it costs one round and never kills, with no new event surface.
+
+**Golden hash — superseded (rules + content change).** Terminal outcome in the encoding (rules) and the guard NPC + epitaphs in `map.json` (content) both move the hashes; engine version bumped. Both goldens regenerated and reproduced identically across two `verifygolden` runs:
+- engine_version: `0.1.0` → `0.2.0`
+- content_hash: `sha256:12378e265ea91cea2ada8b575bf951fadcf1e048cb5ee3a2494c514c2cd97eed` → `sha256:737d5c995fbdb7dfbb9a0e2ddcacd8510052bc6376ac69d59b76392b74a7b029`
+- win final_state_hash (seed 1): `sha256:964206448bc0af164f7dfc3c32568ba12362330f3e87c6bfe76e5eaf2054aaca` → `sha256:7de18c17673be07208ea4c8f4600e3d69e15c72cddd94a0f82e2052273bc74aa`
+- death final_state_hash (seed 0, new): `sha256:7044ef6b788fbd70b8f28b837dc640ee84f50678166208ee81dfb146610dafab`
+
+---
+
 ## 2026-07-11 — Backlog: telemetry, fairness, and process specs
 
 Specs-and-docs session (zero engine code). Added three new backlog specs, amended one existing spec, and reconciled the phase/sprint vocabulary.

@@ -13,6 +13,7 @@ type narration struct {
 	OnEnter      string            `json:"on_enter"`
 	Wait         string            `json:"wait"`
 	Idle         string            `json:"idle"`
+	Won          string            `json:"won"`
 	Observations map[string]string `json:"observations"`
 	Rejections   map[string]string `json:"rejections"`
 }
