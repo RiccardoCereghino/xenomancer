@@ -50,6 +50,19 @@ jobs:
           fi
           echo "determinism OK: golden replay reproduced identically"
 
+      # The runner is the harness that produces the replay (ADR-000 D6): drive
+      # the scripted agent through cmd/run and assert its emitted replay is the
+      # committed determinism fixture, byte for byte.
+      - name: Runner emits the committed determinism fixture
+        shell: bash
+        run: |
+          go run ./cmd/run --agent "go run ./agent/scripted/main" --seed 1 --out /tmp/runner_replay.json
+          if ! diff agent/scripted/testdata/golden_replay.json /tmp/runner_replay.json; then
+            echo "determinism FAIL: cmd/run replay differs from the committed golden"
+            exit 1
+          fi
+          echo "determinism OK: cmd/run reproduced the committed golden replay"
+
   # Guard: fail if math/rand, time., float32, or float64 appear under /engine
   # (ADR-000 D5 CI enforcement (c)), and if the engine imports the quarantined
   # parser (ADR-000 D3/D4 — the parser must stay off the replay path).
