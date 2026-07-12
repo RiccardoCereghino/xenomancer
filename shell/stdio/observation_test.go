@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/RiccardoCereghino/xenomancer/engine"
+	"github.com/RiccardoCereghino/xenomancer/parser"
 )
 
 // loadZone1 reads the real zone-1 content pack and narration from disk (a test
@@ -95,5 +96,67 @@ func TestEyeColorAppearsInPacketsOnlyAtPond(t *testing.T) {
 	}
 	if pondColor != "brown" { // seed 1 golden value
 		t.Errorf("seed 1 eye color = %q, want brown", pondColor)
+	}
+}
+
+// A freeform line that the parser understands advances the round exactly like a
+// canonical envelope: the shell folds the parsed submission through the engine
+// and the agent moves. Only canonical actions ever reach the engine (GDD §5.2).
+func TestFreeformLineAdvancesRound(t *testing.T) {
+	c, nar := loadZone1(t)
+	p := parser.New()
+
+	sub, ok := p.Parse("walk to the forest path")
+	if !ok {
+		t.Fatal(`parser rejected "walk to the forest path"; expected a canonical move`)
+	}
+
+	state := engine.Init(1, c)
+	next, events, err := engine.Reduce(state, sub)
+	if err != nil {
+		t.Fatalf("Reduce: %v", err)
+	}
+	state = next
+
+	packet := buildPacket(state, events, nar)
+	if state.Location != "forest_path" {
+		t.Errorf("after freeform walk, location = %q, want forest_path", state.Location)
+	}
+	if !packet.Result.OK {
+		t.Errorf("freeform move packet not OK: %+v", packet.Result)
+	}
+	if packet.Round != 2 {
+		t.Errorf("round after one accepted freeform line = %d, want 2", packet.Round)
+	}
+}
+
+// A freeform line the parser cannot map is a free rejection: it never reaches
+// the engine, so the round counter does not advance and the packet carries the
+// not_understood rejection (GDD P3 — misparse never kills, never even costs a
+// tick).
+func TestFreeformRejectionCostsNothing(t *testing.T) {
+	c, _ := loadZone1(t)
+	p := parser.New()
+
+	if _, ok := p.Parse("frobnicate the gate"); ok {
+		t.Fatal(`parser accepted "frobnicate the gate"; expected a rejection`)
+	}
+
+	// The shell short-circuits before Reduce, so state (and its round) is
+	// untouched. The rejection packet still reports the pending round.
+	state := engine.Init(1, c)
+	packet := parseRejectionPacket(state)
+
+	if packet.Result.OK {
+		t.Error("parse-rejection packet reports OK; want not OK")
+	}
+	if len(packet.Result.Rejections) != 1 || packet.Result.Rejections[0].Reason != "not_understood" {
+		t.Errorf("rejection = %+v, want a single not_understood", packet.Result.Rejections)
+	}
+	if packet.Round != int(state.Round)+1 {
+		t.Errorf("rejection packet round = %d, want %d (unchanged)", packet.Round, int(state.Round)+1)
+	}
+	if !strings.Contains(packet.Narration, "understand") {
+		t.Errorf("rejection narration = %q, want an 'I don't understand' message", packet.Narration)
 	}
 }

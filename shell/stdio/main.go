@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/RiccardoCereghino/xenomancer/engine"
+	"github.com/RiccardoCereghino/xenomancer/parser"
 )
 
 // ObservationPacket is the engine -> agent packet (ADR-000 D4):
@@ -81,6 +82,12 @@ func main() {
 
 	state := engine.Init(*seed, content)
 
+	// The freeform parser is quarantined outside the engine (ADR-000 D3/D4): it
+	// maps freeform lines to canonical submissions, and only canonical actions
+	// ever reach engine.Reduce and the log. A parse rejection never reaches the
+	// engine, so a misparse costs no tick (GDD §5.2, P3).
+	p := parser.New()
+
 	in := bufio.NewScanner(os.Stdin)
 	in.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	out := bufio.NewWriter(os.Stdout)
@@ -92,9 +99,29 @@ func main() {
 		if line == "" {
 			continue
 		}
+
+		// Each line is either a canonical JSON round envelope or a freeform
+		// line. A leading '{' marks the canonical envelope (ADR-000 D4);
+		// anything else is freeform and goes through the parser.
 		var sub engine.RoundSubmission
-		if err := json.Unmarshal([]byte(line), &sub); err != nil {
-			fatal("decode round envelope: %v", err)
+		if strings.HasPrefix(line, "{") {
+			if err := json.Unmarshal([]byte(line), &sub); err != nil {
+				fatal("decode round envelope: %v", err)
+			}
+		} else {
+			parsed, ok := p.Parse(line)
+			if !ok {
+				// Free rejection: no tick, no state change, nothing logged. The
+				// rejected line is the dictionary's backlog (GDD §13); a simple
+				// stderr note stands in until rejection telemetry (ADR-003).
+				fmt.Fprintf(os.Stderr, "shell/stdio: parse reject: %q\n", line)
+				if err := enc.Encode(parseRejectionPacket(state)); err != nil {
+					fatal("encode packet: %v", err)
+				}
+				out.Flush()
+				continue
+			}
+			sub = parsed
 		}
 
 		next, events, err := engine.Reduce(state, sub)
@@ -140,22 +167,43 @@ func buildPacket(state engine.State, events []engine.Event, nar narration) Obser
 		}
 	}
 
-	holds := state.Holds
-	if holds == nil {
-		holds = []engine.Hold{}
-	}
-
 	return ObservationPacket{
 		V:            engine.ProtocolVersion,
 		Round:        int(state.Round) + 1,
 		Narration:    nar.render(state.Location, moved, waited, observations, rejections),
-		Holds:        holds,
+		Holds:        holdsOrEmpty(state.Holds),
 		Observations: observationsOrEmpty(observations),
 		Result: Result{
 			OK:         len(rejections) == 0,
 			Rejections: valueOrEmpty(rejections),
 		},
 	}
+}
+
+// parseRejectionPacket is the "I don't understand" response for a freeform line
+// with no dictionary hit. It reports a not_understood rejection and leaves the
+// round unchanged: no engine.Reduce ran, so state.Round is still the pending
+// round the agent may retry (GDD §5.2, P3). The reason lives in the shell, not
+// the engine — the engine stays ignorant of the parser (quarantine).
+func parseRejectionPacket(state engine.State) ObservationPacket {
+	return ObservationPacket{
+		V:            engine.ProtocolVersion,
+		Round:        int(state.Round) + 1,
+		Narration:    "I don't understand.",
+		Holds:        holdsOrEmpty(state.Holds),
+		Observations: []Observation{},
+		Result: Result{
+			OK:         false,
+			Rejections: []Rejection{{Reason: "not_understood"}},
+		},
+	}
+}
+
+func holdsOrEmpty(h []engine.Hold) []engine.Hold {
+	if h == nil {
+		return []engine.Hold{}
+	}
+	return h
 }
 
 func observationsOrEmpty(o []Observation) []Observation {
