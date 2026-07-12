@@ -40,13 +40,13 @@ func TestGoldenReplay(t *testing.T) {
 		t.Fatalf("BuildReplay: %v", err)
 	}
 
-	// The scripted agent must end on the forest path (clearing -> forest_path,
-	// then two waits).
-	if final.Location != "forest_path" {
-		t.Errorf("final location = %q, want forest_path", final.Location)
+	// The scripted agent walks the full slice and ends at the gate
+	// (clearing -> forest_path -> still_pond, inspect, -> forest_path -> gate).
+	if final.Location != "gate" {
+		t.Errorf("final location = %q, want gate", final.Location)
 	}
-	if final.Round != 3 || final.Tick != 3 {
-		t.Errorf("final round/tick = %d/%d, want 3/3", final.Round, final.Tick)
+	if final.Round != 5 || final.Tick != 5 {
+		t.Errorf("final round/tick = %d/%d, want 5/5", final.Round, final.Tick)
 	}
 
 	// 2. Verify the replay reproduces its own final hash.
