@@ -7,11 +7,12 @@ import (
 
 	"github.com/RiccardoCereghino/xenomancer/engine"
 	"github.com/RiccardoCereghino/xenomancer/parser"
+	"github.com/RiccardoCereghino/xenomancer/shell/wire"
 )
 
 // loadZone1 reads the real zone-1 content pack and narration from disk (a test
 // may do I/O; the engine may not).
-func loadZone1(t *testing.T) (engine.Content, narration) {
+func loadZone1(t *testing.T) (engine.Content, wire.Narration) {
 	t.Helper()
 	mapBytes, err := os.ReadFile("../../content/zone1/map.json")
 	if err != nil {
@@ -25,9 +26,9 @@ func loadZone1(t *testing.T) (engine.Content, narration) {
 	if err != nil {
 		t.Fatalf("read narration.json: %v", err)
 	}
-	nar, err := loadNarration(narBytes)
+	nar, err := wire.LoadNarration(narBytes)
 	if err != nil {
-		t.Fatalf("loadNarration: %v", err)
+		t.Fatalf("LoadNarration: %v", err)
 	}
 	return c, nar
 }
@@ -70,7 +71,7 @@ func TestEyeColorAppearsInPacketsOnlyAtPond(t *testing.T) {
 			t.Fatalf("Reduce round %d: %v", i, err)
 		}
 		state = next
-		packet := buildPacket(state, events, nar)
+		packet := wire.BuildPacket(state, events, nar)
 
 		// Structured observations carry the value only on the pond round.
 		for j := 0; j < len(packet.Observations); j++ {
@@ -118,7 +119,7 @@ func TestFreeformLineAdvancesRound(t *testing.T) {
 	}
 	state = next
 
-	packet := buildPacket(state, events, nar)
+	packet := wire.BuildPacket(state, events, nar)
 	if state.Location != "forest_path" {
 		t.Errorf("after freeform walk, location = %q, want forest_path", state.Location)
 	}
@@ -195,11 +196,11 @@ func TestWinTerminalPacket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reduce: %v", err)
 	}
-	pkt, ok := terminalPacket(next, events, nar)
+	pkt, ok := wire.TerminalPacket(next, events, nar)
 	if !ok {
 		t.Fatal("expected a terminal packet on a win")
 	}
-	won, isWon := pkt.(WonPacket)
+	won, isWon := pkt.(wire.WonPacket)
 	if !isWon {
 		t.Fatalf("terminal packet type = %T, want WonPacket", pkt)
 	}
@@ -223,11 +224,11 @@ func TestDeathTerminalPacket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reduce: %v", err)
 	}
-	pkt, ok := terminalPacket(next, events, nar)
+	pkt, ok := wire.TerminalPacket(next, events, nar)
 	if !ok {
 		t.Fatal("expected a terminal packet on a death")
 	}
-	death, isDeath := pkt.(DeathPacket)
+	death, isDeath := pkt.(wire.DeathPacket)
 	if !isDeath {
 		t.Fatalf("terminal packet type = %T, want DeathPacket", pkt)
 	}
@@ -255,10 +256,10 @@ func TestUnclearClaimIsNotTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reduce: %v", err)
 	}
-	if _, ok := terminalPacket(next, events, nar); ok {
+	if _, ok := wire.TerminalPacket(next, events, nar); ok {
 		t.Fatal("an unclear claim must not produce a terminal packet")
 	}
-	pkt := buildPacket(next, events, nar)
+	pkt := wire.BuildPacket(next, events, nar)
 	if pkt.Result.OK {
 		t.Error("result.ok should be false for an unclear claim")
 	}

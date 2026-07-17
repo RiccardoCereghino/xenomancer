@@ -1,14 +1,14 @@
-package main
+package wire
 
 import (
 	"encoding/json"
 	"strings"
 )
 
-// narration holds the plain templates loaded from narration.json (GDD §9).
-// The narrator is a pure consumer of engine events and location state
-// (ADR-000 D2); it lives in the shell, never in the engine.
-type narration struct {
+// Narration holds the plain templates loaded from narration.json (GDD §9). The
+// narrator is a pure consumer of engine events and location state (ADR-000 D2);
+// it lives in the shell, never in the engine.
+type Narration struct {
 	Locations    map[string]string `json:"locations"`
 	OnEnter      string            `json:"on_enter"`
 	Wait         string            `json:"wait"`
@@ -18,10 +18,11 @@ type narration struct {
 	Rejections   map[string]string `json:"rejections"`
 }
 
-func loadNarration(data []byte) (narration, error) {
-	var n narration
+// LoadNarration parses the plain templates from narration.json bytes.
+func LoadNarration(data []byte) (Narration, error) {
+	var n Narration
 	if err := json.Unmarshal(data, &n); err != nil {
-		return narration{}, err
+		return Narration{}, err
 	}
 	return n, nil
 }
@@ -29,7 +30,7 @@ func loadNarration(data []byte) (narration, error) {
 // render composes deterministic narration for a resolved round. Templates are
 // looked up by key (never iterated), so output order is fixed. Observations are
 // rendered in event order; the eye-color line names the color via {value}.
-func (n narration) render(location string, moved, waited bool, observations []Observation, rejections []Rejection) string {
+func (n Narration) render(location string, moved, waited bool, observations []Observation, rejections []Rejection) string {
 	var parts []string
 
 	if moved {
