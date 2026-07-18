@@ -1,20 +1,25 @@
 // Command llm-agent is the naive LLM player (backlog 06). It runs as an --agent
 // subprocess under cmd/run (ADR-000 D8): it reads observation packets from stdin,
-// sends them to the Anthropic Messages API, takes the model's FREEFORM reply, and
-// routes that reply through the quarantined parser (backlog 04) to a canonical
-// round envelope, which it writes to stdout for the runner. The parser is the
-// gate — a misparse becomes a free wait, never a death (GDD P3): this is the
-// quarantine proving itself on genuinely sloppy input. The model is strictly the
-// player, never on the engine/rules path (GDD P1, ADR-000 D5 LLM-quarantine).
+// asks a model provider, takes the model's FREEFORM reply, and routes that reply
+// through the quarantined parser (backlog 04) to a canonical round envelope,
+// which it writes to stdout for the runner. The parser is the gate — a misparse
+// becomes a free wait, never a death (GDD P3): this is the quarantine proving
+// itself on genuinely sloppy input. The model is strictly the player, never on
+// the engine/rules path (GDD P1, ADR-000 D5 LLM-quarantine).
 //
-// Run it under the runner (a live episode; needs ANTHROPIC_API_KEY):
+// Providers (--provider):
+//   - github-models: free, OpenAI-compatible GitHub Models, keyed by GITHUB_TOKEN
+//     (github.go). This is what the gated showcase uses — no external secret.
+//   - anthropic (default): the Anthropic Messages API, keyed by ANTHROPIC_API_KEY
+//     (client.go).
 //
-//	ANTHROPIC_API_KEY=... go run ./cmd/run --seed 1 --deadline 90s \
-//	  --out replay.json --agent "go run ./agent/llm --report death.json"
+// Run it under the runner (a live episode):
 //
-// Model selection: --model or ANTHROPIC_MODEL (default below). The showcase runs
-// this across models to produce the multi-model results post (GDD §11). --report
-// writes the terminal packet (the death report or win) for the showcase to upload.
+//	GITHUB_TOKEN=... go run ./cmd/run --seed 1 --deadline 90s --out replay.json \
+//	  --agent "go run ./agent/llm --provider github-models --report death.json"
+//
+// Model selection: --model (default per provider). --report writes the terminal
+// packet (the death report or win) for the showcase to upload.
 package main
 
 import (
@@ -65,16 +70,16 @@ type incoming struct {
 }
 
 func main() {
-	model := flag.String("model", envOr("ANTHROPIC_MODEL", defaultModel), "Anthropic model id (or set ANTHROPIC_MODEL)")
+	provider := flag.String("provider", envOr("XENO_PROVIDER", "anthropic"), "model provider: anthropic | github-models")
+	model := flag.String("model", "", "model id; default depends on --provider")
 	reportPath := flag.String("report", "", "write the terminal packet (death report / win) to this file")
 	flag.Parse()
 
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	if apiKey == "" {
-		fmt.Fprintln(os.Stderr, "llm-agent: ANTHROPIC_API_KEY is not set")
+	api, err := newCompleter(*provider, *model)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "llm-agent: %v\n", err)
 		os.Exit(1)
 	}
-	api := newClient(apiKey, *model)
 	p := parser.New()
 
 	in := bufio.NewScanner(os.Stdin)
