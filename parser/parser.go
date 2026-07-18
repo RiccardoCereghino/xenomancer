@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/RiccardoCereghino/xenomancer/engine"
@@ -73,10 +74,31 @@ func (p *Parser) Parse(line string) (engine.RoundSubmission, bool) {
 		action.Target = target
 	}
 
+	// A talk addresses an NPC (Target) and carries the reply text in Args
+	// ({"say":"..."}); the guard matches it against the palette (GDD §5.4). The
+	// whole normalized line is the reply — the engine extracts the single palette
+	// word from it, so a claim needs no palette word in the dictionary. The action
+	// still required an exact talk-verb hit AND an exact NPC-target hit, so
+	// misparse-never-kills holds: no freeform line reaches the guard without both
+	// dictionary hits (GDD P3).
+	if verb.Verb == engine.VerbTalk {
+		action.Args = sayArgs(tokens)
+	}
+
 	return engine.RoundSubmission{
 		V:       engine.ProtocolVersion,
 		Actions: []engine.Action{action},
 	}, true
+}
+
+// sayArgs encodes the reply text a talk claim carries: {"say":"<line>"}. The
+// engine's closed-palette matching scans the whole reply, so the full normalized
+// line is passed and json.Marshal handles escaping.
+func sayArgs(tokens []string) json.RawMessage {
+	b, _ := json.Marshal(struct {
+		Say string `json:"say"`
+	}{Say: strings.Join(tokens, " ")})
+	return b
 }
 
 // matchVerb finds the verb dictionary hit over the token windows, preferring the

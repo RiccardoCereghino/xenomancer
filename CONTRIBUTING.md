@@ -73,6 +73,28 @@ that alters the canonical world (new facts, new map, new palette) likewise
 supersedes and regenerates them. An unchanged golden hash on a state-affecting
 PR is a red flag — say which case applies in the PR.
 
+## Live showcase (spends tokens)
+
+CI (`ci.yml`) is hermetic and spends **no** tokens — scripted agents only. The
+gated live-agent showcase (`showcase.yml`, GDD §10/§11) is separate: it plays a
+real LLM player through `cmd/run` and therefore spends API tokens.
+
+- **Trigger.** `workflow_dispatch` only — never on push or pull_request. Normal
+  CI stays free.
+- **Secret.** The repo owner must add the **`ANTHROPIC_API_KEY`** secret manually
+  (Settings → Secrets and variables → Actions) before the job can run. It fails
+  fast with a clear message if the secret is missing.
+- **Best-of-3, allowed to flake.** It plays three episodes on distinct seeds;
+  each runs under `|| true`, so a loss or a model hiccup is not a red build. The
+  LLM agent routes every model reply through the quarantined parser, so a
+  misparse is a free wait, never a death (GDD P3).
+- **Deliverable.** The uploaded **replay + death report** artifacts are the
+  post-mortem — the raw material for the multi-model results post (GDD §11). The
+  model is configurable via the workflow's `model` input / `ANTHROPIC_MODEL`.
+- **The LLM is strictly the player.** No model ever touches the engine, rules,
+  or parser lethal path (GDD P1, ADR-000 D5 LLM-quarantine). The agent is a
+  stdlib-only (`net/http`) client — no third-party SDK, no new dependency.
+
 ## Content & repo policy
 
 - **Public vs held-out content.** Public issues cover engine, mechanics, and

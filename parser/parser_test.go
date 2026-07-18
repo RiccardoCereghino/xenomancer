@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -9,6 +10,38 @@ import (
 
 	"github.com/RiccardoCereghino/xenomancer/engine"
 )
+
+// TestGuardReplyParsesToAClaim covers the freeform-guard-reply path (backlog 06):
+// a reply that names the guard resolves to a canonical talk on voice addressed to
+// gate_guard, carrying the reply text in Args so the engine can match it against
+// the palette. The claim word itself is judged by the engine (a fair death),
+// never the parser — the parser only needs the talk verb + NPC target hits (P3).
+func TestGuardReplyParsesToAClaim(t *testing.T) {
+	p := New()
+	for _, in := range []string{
+		"say brown to the guard",
+		"tell the guard my eyes are brown",
+		"answer the gate guard brown",
+	} {
+		sub, ok := p.Parse(in)
+		if !ok {
+			t.Fatalf("Parse(%q) rejected; want a guard claim", in)
+		}
+		a := sub.Actions[0]
+		if a.Verb != engine.VerbTalk || a.Resource != "voice" || a.Target != "gate_guard" {
+			t.Errorf("Parse(%q) action = %+v, want talk/voice/gate_guard", in, a)
+		}
+		var claim struct {
+			Say string `json:"say"`
+		}
+		if err := json.Unmarshal(a.Args, &claim); err != nil {
+			t.Fatalf("Parse(%q) Args not valid JSON: %v", in, err)
+		}
+		if !strings.Contains(claim.Say, "brown") {
+			t.Errorf("Parse(%q) Args.say = %q, want it to contain 'brown'", in, claim.Say)
+		}
+	}
+}
 
 // TestKnownSynonymsMapToCanonicalActions pins the happy path: known freeform
 // phrasings resolve to the exact canonical action, including the resource the
@@ -57,13 +90,14 @@ func TestUnknownInputIsAFreeRejection(t *testing.T) {
 		"   ",
 		"!?.,",
 		"xyzzy",
-		"frobnicate the gate", // unknown verb, known target
-		"waiter",              // must NOT hit the "wait" verb (whole-token match)
-		"gate",                // target with no verb
-		"move to the moon",    // known verb, unknown target
-		"look",                // inspect with no target
-		"go",                  // perform with no target
-		"speak to the guard",  // talk with no known target this sprint
+		"frobnicate the gate",  // unknown verb, known target
+		"waiter",               // must NOT hit the "wait" verb (whole-token match)
+		"gate",                 // target with no verb
+		"move to the moon",     // known verb, unknown target
+		"look",                 // inspect with no target
+		"go",                   // perform with no target
+		"speak",                // talk with no addressee
+		"say something clever", // talk verb but no NPC target
 	}
 	for _, in := range rejects {
 		t.Run(in, func(t *testing.T) {

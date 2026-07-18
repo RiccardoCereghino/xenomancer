@@ -1,0 +1,81 @@
+name: showcase
+
+# Gated live-agent showcase (GDD §10/§11, backlog 06). Unlike ci.yml — which is
+# hermetic and spends no tokens — this job plays a real LLM agent through the
+# engine and therefore SPENDS API TOKENS. It runs on workflow_dispatch ONLY,
+# never on push or pull_request, so normal CI stays free.
+#
+# SETUP: the repo owner must add the `ANTHROPIC_API_KEY` secret manually
+# (Settings → Secrets and variables → Actions) before this workflow can run.
+# See CONTRIBUTING.md → "Live showcase".
+#
+# The job plays best-of-3 episodes and is ALLOWED TO FLAKE: a loss or a model
+# hiccup is not a red build (each episode runs under `|| true`). The deliverable
+# is the uploaded post-mortem — replay + death report — the raw material for the
+# multi-model results post (GDD §11).
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Anthropic model id for the player agent"
+        required: false
+        default: "claude-sonnet-5"
+
+permissions:
+  contents: read
+
+jobs:
+  showcase:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ANTHROPIC_MODEL: ${{ inputs.model }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build
+        run: go build ./...
+
+      - name: Fail early if the API key is missing
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            echo "ANTHROPIC_API_KEY is not set — add it as a repository secret (see CONTRIBUTING.md)."
+            exit 1
+          fi
+
+      # Best-of-3: play three episodes on distinct seeds (0 is the canonical
+      # death world). Each is allowed to flake (|| true) — a loss or a model
+      # hiccup must not turn the build red. cmd/run hosts the engine and drives
+      # the LLM agent, which routes every model reply through the quarantined
+      # parser; misparses become free waits, never deaths (GDD P3).
+      - name: Play best-of-3
+        run: |
+          for seed in 0 1 2; do
+            dir="artifacts/episode-${seed}"
+            mkdir -p "${dir}"
+            echo "::group::episode seed=${seed}"
+            go run ./cmd/run \
+              --agent "go run ./agent/llm --report ${dir}/death_report.json" \
+              --seed "${seed}" \
+              --bracket "llm" \
+              --deadline 90s \
+              --max-rounds 40 \
+              --out "${dir}/replay.json" || true
+            echo "::endgroup::"
+          done
+          echo "--- artifacts produced ---"
+          find artifacts -type f -print
+
+      # The post-mortem is the deliverable and the publicity material (GDD §11):
+      # every replay + death report is uploaded.
+      - name: Upload replays and death reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: showcase-post-mortem
+          path: artifacts/**
+          if-no-files-found: warn

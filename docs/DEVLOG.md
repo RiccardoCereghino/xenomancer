@@ -4,6 +4,24 @@ Convention: one entry per working day, newest first. Entries are appended by the
 
 ---
 
+## 2026-07-18 — Issue 08: naive LLM agent + gated showcase
+
+By the time this ran, the guard (03), parser (04), and the `cmd/run` bidirectional runner (05, #18) had all merged to `main`, so issue 08 reduced to its one genuinely-missing piece: the naive LLM player + the gated showcase (backlog 06). Built on the merged runner + parser + `shell/wire`; no engine/content/runner changes.
+
+**Shipped**
+- **Naive LLM agent `agent/llm` (06).** Runs as an `--agent` subprocess under `cmd/run`. A **stdlib-only** (`net/http`) Anthropic Messages API client — **no third-party SDK**, `go.mod` still dependency-free. Each turn it reads the observation packet, asks the model, takes the model's **freeform** reply, and routes it through `parser.New().Parse` to a canonical envelope emitted on stdout (the runner reads canonical envelopes). A misparse becomes a free `wait` and the model is told next turn — the quarantine on genuinely sloppy input (GDD P3). Recognizes the terminal won/died packet by its `outcome` field and writes it to `--report` for the showcase to upload. Model via `--model` / `ANTHROPIC_MODEL`; `ANTHROPIC_BASE_URL` supported for gateways/tests. Covered by an `httptest` unit suite **and** an end-to-end run of the agent binary against a stub server — CI stays hermetic and zero-token.
+- **Parser wiring for guard replies (06, additive).** The merged parser (04) handled navigation only — a freeform reply could never reach the guard (no NPC target, no `args`). Added additively: guard synonyms (`guard`/`gate guard`/`gatekeeper`/`guardian` → `gate_guard`) + talk-verb synonyms, and a talk action now carries `Args:{"say":"<normalized line>"}` so the engine matches the palette. Misparse-never-kills preserved — a claim still needs an exact talk-verb **and** NPC-target dictionary hit (property test unchanged; one reject-case flipped to a positive guard-claim test). Without this the LLM could reach the gate but never claim, so the showcase could never demonstrate the guard death.
+- **`showcase.yml` (06).** `workflow_dispatch` only, best-of-3 on seeds 0/1/2 (0 = canonical death world), allowed to flake, uploads replay + death report. `ci.yml`: one `CGO_ENABLED=0` line so the new `net/http` binary links internally on the macOS runner (pure-Go project; state hashes unaffected). Owner must add `ANTHROPIC_API_KEY` (documented in the workflow + CONTRIBUTING "Live showcase").
+
+**Decisions of record**
+- Scope reconciled after concurrent merges of 03/04/05: issue 08 shipped as 06 only, on top of the merged runner/parser/wire — no duplication.
+- The parser runs **inside the agent** (model freeform → parser → canonical envelope), because the merged `cmd/run` reads canonical envelopes; the parser stays quarantined outside `/engine`.
+- The guard-reply parser support is the one additive bit 06 needs; kept minimal so the merged parser's navigation behavior and property test are untouched.
+
+**Golden hash — unchanged.** No `/engine` or content change; the committed goldens and the `cmd/run` determinism-fixture check are untouched.
+
+---
+
 ## 2026-07-12 — Issue 05: gate guard interrogation, win condition & death reports
 
 Closes the slice loop. Implements the "lethal check" half (GDD §7): the gate guard interrogates the agent's eye color, a correct claim wins, a wrong one is a fair death (P3) — the first `contextual`/`social` death class. Rebased onto the parser-v1 merge (backlog 04); the shell now routes both freeform lines (parser) and the terminal died/won packets.
