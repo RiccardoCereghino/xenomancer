@@ -16,6 +16,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # This is a pure-Go, zero-dependency project — cgo buys it nothing. Disabling
+    # it forces internal linking so the build is identical across OSes and avoids
+    # the macOS arm64 external-linker "missing LC_UUID" dyld abort on binaries
+    # that import net/http (agent/llm). Hashes are SHA-256 over canonical bytes,
+    # so linking mode never affects the determinism proof.
+    env:
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

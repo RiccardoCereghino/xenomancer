@@ -15,7 +15,10 @@
     "travel": {"verb": "perform", "resource": "legs"},
     "talk": {"verb": "talk", "resource": "voice"},
     "say": {"verb": "talk", "resource": "voice"},
-    "speak": {"verb": "talk", "resource": "voice"}
+    "speak": {"verb": "talk", "resource": "voice"},
+    "tell": {"verb": "talk", "resource": "voice"},
+    "answer": {"verb": "talk", "resource": "voice"},
+    "reply": {"verb": "talk", "resource": "voice"}
   },
   "targets": {
     "clearing": "clearing",
@@ -30,6 +33,10 @@
     "reflection": "reflection",
     "my reflection": "reflection",
     "self": "self",
-    "myself": "self"
+    "myself": "self",
+    "guard": "gate_guard",
+    "gate guard": "gate_guard",
+    "gatekeeper": "gate_guard",
+    "guardian": "gate_guard"
   }
 }
