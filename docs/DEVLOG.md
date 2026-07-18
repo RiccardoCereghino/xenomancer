@@ -4,6 +4,24 @@ Convention: one entry per working day, newest first. Entries are appended by the
 
 ---
 
+## 2026-07-18 — First live showcase run + in-character prompt rewrite
+
+First real `showcase.yml` run on GitHub Models (`openai/gpt-4o-mini`, best-of-3, seeds 0/1/2). It played **free** with the built-in `GITHUB_TOKEN` — `Models: read` confirmed in the run's token permissions, no secret, no rate-limit flakes. Result: **3 wins out of 3.** Each episode walked to the pond, inspected its reflection, learned its eye color, and answered the guard correctly (seed 0 = grey, seeds 1/2 = brown). A recurring tell across all three: it tried to walk from the dead-end pond straight to the gate, hit `illegal_move`, and backtracked for free — no memory across the mistake, but the slice never punishes wandering.
+
+**Why it was trivial:** the old system prompt *was the walkthrough* — it named the pond, the reflection, the guard's eye-color question, and the exact `"say brown to the guard"` phrasing. The world's own narration piles on more hints. So the showcase was testing the recipe, not the model.
+
+**Shipped**
+- **Rewrote the LLM agent's system prompt (`agent/llm/main.go`) as an in-character briefing with no walkthrough.** The player is Dhken Ehdinx Hash, a stranded scout of a Type II civilization sent to understand human magic, morphed into a mortal human body after a crash. It states who it is and what is at stake — **not** how to win. No mention of the pond, the reflection, the guard's question, or what to say; the model must read the world's affordances and choose. The mechanical contract (one action, one line, plain English) is kept so the parser can still route replies.
+- **Bounded the showcase job (`showcase.yml`).** The first in-character run dragged: with no early win the agent runs every round, and the free GitHub Models tier throttles ~120 requests. Added a hard `timeout-minutes: 15` on the job, a per-episode `timeout --preserve-status 300s` kill switch, and tightened the runner caps (`--deadline 90s→45s`, `--max-rounds 40→25`) so each episode finishes and writes its replay instead of crawling. The prior per-round deadline × max-rounds had a ~3h worst case with no wall-clock ceiling.
+
+**Decisions of record**
+- The showcase prompt is **character + stakes, not a solution key.** Removing the walkthrough is deliberate: the harness should test the model, not narrate the answer. Expect win rate to drop — that is the point, and the showcase is allowed to flake (best-of-3, `|| true`).
+- Genuinely raising difficulty (force *discovery* of the pond, punish wandering) still wants the wolf (backlog 02) and less telegraphed narration; tracked separately, out of scope here.
+
+**Golden hash — unchanged.** Prompt lives in `agent/llm` (outside `/engine`); no engine or content change.
+
+---
+
 ## 2026-07-18 — Showcase: free GitHub Models provider
 
 Follow-up to issue 08. The showcase required an `ANTHROPIC_API_KEY` secret and spent (a little) money. Added a **GitHub Models** provider so it runs **free** with the built-in `GITHUB_TOKEN` — no secret, no per-token bill.
