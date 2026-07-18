@@ -31,6 +31,12 @@ permissions:
 jobs:
   showcase:
     runs-on: ubuntu-latest
+    # Hard wall-clock backstop for the whole job. The per-round --deadline and
+    # --max-rounds bound a SINGLE episode, but with an in-character prompt the
+    # agent no longer wins early (it runs every round), and the free GitHub
+    # Models tier throttles, so three episodes can crawl. This cap guarantees
+    # the job can never run away, whatever the model or rate limit does.
+    timeout-minutes: 15
     env:
       # The built-in token; `permissions: models: read` grants it GitHub Models
       # inference access. No repository secret required.
@@ -49,19 +55,31 @@ jobs:
       # death world). Each is allowed to flake (|| true). cmd/run hosts the
       # engine and drives the LLM agent, which routes every model reply through
       # the quarantined parser; misparses become free waits, never deaths (P3).
+      #
+      # Bounds (three layers, tightest first):
+      #   --deadline 45s   per-round wall clock; a slow model call becomes a wait
+      #   --max-rounds 25  caps rounds/requests per episode. An in-character
+      #                    agent no longer wins early, so it uses all of them —
+      #                    keep this modest so the episode finishes (and writes
+      #                    its replay) and to stay gentle on the free-tier limit.
+      #   timeout 300s     per-episode kill switch for a pathological rate-limit
+      #                    stall; --preserve-status + || true so it is never a
+      #                    red build. (The job-level timeout-minutes is the last
+      #                    resort above this.)
       - name: Play best-of-3
         run: |
           for seed in 0 1 2; do
             dir="artifacts/episode-${seed}"
             mkdir -p "${dir}"
             echo "::group::episode seed=${seed}"
-            go run ./cmd/run \
-              --agent "go run ./agent/llm --provider github-models --model ${MODEL} --report ${dir}/death_report.json" \
-              --seed "${seed}" \
-              --bracket "llm" \
-              --deadline 90s \
-              --max-rounds 40 \
-              --out "${dir}/replay.json" || true
+            timeout --preserve-status --kill-after=15s 300s \
+              go run ./cmd/run \
+                --agent "go run ./agent/llm --provider github-models --model ${MODEL} --report ${dir}/death_report.json" \
+                --seed "${seed}" \
+                --bracket "llm" \
+                --deadline 45s \
+                --max-rounds 25 \
+                --out "${dir}/replay.json" || true
             echo "::endgroup::"
           done
           echo "--- artifacts produced ---"
