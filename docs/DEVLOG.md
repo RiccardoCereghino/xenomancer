@@ -4,6 +4,23 @@ Convention: one entry per working day, newest first. Entries are appended by the
 
 ---
 
+## 2026-07-18 — Showcase: free GitHub Models provider
+
+Follow-up to issue 08. The showcase required an `ANTHROPIC_API_KEY` secret and spent (a little) money. Added a **GitHub Models** provider so it runs **free** with the built-in `GITHUB_TOKEN` — no secret, no per-token bill.
+
+**Shipped**
+- **`agent/llm` gains a `--provider` flag** (`anthropic` | `github-models`). New `agent/llm/github.go`: a stdlib-only (`net/http`) client for GitHub Models — the free, OpenAI-compatible inference API at `https://models.github.ai/inference/chat/completions`. It folds the system prompt into a leading `system`-role message, reads `choices[0].message.content`, and retries a 429 honoring `Retry-After` (the free tier is rate-limited). A `completer` interface is the provider seam; `newCompleter` validates the credential per provider. `go.mod` still dependency-free.
+- **`showcase.yml` now runs free by default.** `permissions: models: read` + `GITHUB_TOKEN: ${{ github.token }}`; the agent runs with `--provider github-models`. No `ANTHROPIC_API_KEY` needed. Model input is a GitHub Models id (`publisher/name`, default `openai/gpt-4o-mini`). Anthropic stays available via `--provider anthropic` + the secret.
+- Tests: GitHub Models client request/headers/response, 429-retry, `newCompleter` provider selection, and an end-to-end run of the agent binary with `--provider github-models` against a stub server (hermetic). CONTRIBUTING "Live showcase" updated.
+
+**Decisions of record**
+- The showcase defaults to the free GitHub Models tier; Anthropic is an opt-in alternative. Both providers are stdlib `net/http`, keeping the no-dependency rule.
+- The parser still runs inside the agent (provider-agnostic); nothing on the engine/rules path changed.
+
+**Golden hash — unchanged.** No `/engine` or content change.
+
+---
+
 ## 2026-07-18 — Issue 08: naive LLM agent + gated showcase
 
 By the time this ran, the guard (03), parser (04), and the `cmd/run` bidirectional runner (05, #18) had all merged to `main`, so issue 08 reduced to its one genuinely-missing piece: the naive LLM player + the gated showcase (backlog 06). Built on the merged runner + parser + `shell/wire`; no engine/content/runner changes.

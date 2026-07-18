@@ -73,27 +73,36 @@ that alters the canonical world (new facts, new map, new palette) likewise
 supersedes and regenerates them. An unchanged golden hash on a state-affecting
 PR is a red flag — say which case applies in the PR.
 
-## Live showcase (spends tokens)
+## Live showcase
 
-CI (`ci.yml`) is hermetic and spends **no** tokens — scripted agents only. The
-gated live-agent showcase (`showcase.yml`, GDD §10/§11) is separate: it plays a
-real LLM player through `cmd/run` and therefore spends API tokens.
+CI (`ci.yml`) is hermetic — scripted agents only. The gated live-agent showcase
+(`showcase.yml`, GDD §10/§11) is separate: it plays a real LLM player through
+`cmd/run`.
 
 - **Trigger.** `workflow_dispatch` only — never on push or pull_request. Normal
   CI stays free.
-- **Secret.** The repo owner must add the **`ANTHROPIC_API_KEY`** secret manually
-  (Settings → Secrets and variables → Actions) before the job can run. It fails
-  fast with a clear message if the secret is missing.
+- **Free by default — GitHub Models.** The showcase uses [GitHub
+  Models](https://docs.github.com/en/github-models) — a free, OpenAI-compatible
+  inference API authenticated by the built-in `GITHUB_TOKEN` via `permissions:
+  models: read`. **No secret to add, no per-token bill.** The free tier is
+  rate-limited (fine for an occasional best-of-3; the agent retries a 429). The
+  only prerequisite is that GitHub Models is enabled for the account/org
+  (Settings → Models). Pick the model with the workflow's `model` input
+  (`publisher/name`, default `openai/gpt-4o-mini`).
+- **Anthropic (optional alternative).** To play with Claude instead, add an
+  `ANTHROPIC_API_KEY` secret and run the agent with `--provider anthropic`
+  (`--model` / `ANTHROPIC_MODEL`). That path is pay-as-you-go (a best-of-3 is
+  pennies). The agent picks the provider via `--provider anthropic |
+  github-models` (`agent/llm`).
 - **Best-of-3, allowed to flake.** It plays three episodes on distinct seeds;
-  each runs under `|| true`, so a loss or a model hiccup is not a red build. The
-  LLM agent routes every model reply through the quarantined parser, so a
-  misparse is a free wait, never a death (GDD P3).
+  each runs under `|| true`, so a loss, a model hiccup, or a rate-limit is not a
+  red build. The LLM agent routes every model reply through the quarantined
+  parser, so a misparse is a free wait, never a death (GDD P3).
 - **Deliverable.** The uploaded **replay + death report** artifacts are the
-  post-mortem — the raw material for the multi-model results post (GDD §11). The
-  model is configurable via the workflow's `model` input / `ANTHROPIC_MODEL`.
+  post-mortem — the raw material for the multi-model results post (GDD §11).
 - **The LLM is strictly the player.** No model ever touches the engine, rules,
-  or parser lethal path (GDD P1, ADR-000 D5 LLM-quarantine). The agent is a
-  stdlib-only (`net/http`) client — no third-party SDK, no new dependency.
+  or parser lethal path (GDD P1, ADR-000 D5 LLM-quarantine). Both providers are
+  stdlib-only (`net/http`) clients — no third-party SDK, no new dependency.
 
 ## Content & repo policy
 

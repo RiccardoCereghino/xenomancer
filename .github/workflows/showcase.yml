@@ -1,36 +1,41 @@
 name: showcase
 
 # Gated live-agent showcase (GDD §10/§11, backlog 06). Unlike ci.yml — which is
-# hermetic and spends no tokens — this job plays a real LLM agent through the
-# engine and therefore SPENDS API TOKENS. It runs on workflow_dispatch ONLY,
-# never on push or pull_request, so normal CI stays free.
+# hermetic — this job plays a real LLM agent through the engine. It runs on
+# workflow_dispatch ONLY, never on push or pull_request.
 #
-# SETUP: the repo owner must add the `ANTHROPIC_API_KEY` secret manually
-# (Settings → Secrets and variables → Actions) before this workflow can run.
-# See CONTRIBUTING.md → "Live showcase".
+# By default it uses GitHub Models (https://models.github.ai) — a free,
+# OpenAI-compatible inference API authenticated by the built-in GITHUB_TOKEN via
+# `permissions: models: read`. So NO external secret is needed and there is no
+# per-token bill; the free tier is rate-limited, which is fine for an occasional
+# best-of-3. (GitHub Models must be enabled for the account/org — Settings →
+# Models. To use Anthropic instead, see CONTRIBUTING.md → "Live showcase".)
 #
-# The job plays best-of-3 episodes and is ALLOWED TO FLAKE: a loss or a model
-# hiccup is not a red build (each episode runs under `|| true`). The deliverable
-# is the uploaded post-mortem — replay + death report — the raw material for the
-# multi-model results post (GDD §11).
+# The job plays best-of-3 episodes and is ALLOWED TO FLAKE: a loss, a model
+# hiccup, or a rate-limit is not a red build (each episode runs under `|| true`).
+# The deliverable is the uploaded post-mortem — replay + death report — the raw
+# material for the multi-model results post (GDD §11).
 
 on:
   workflow_dispatch:
     inputs:
       model:
-        description: "Anthropic model id for the player agent"
+        description: "GitHub Models model id for the player agent (publisher/name)"
         required: false
-        default: "claude-sonnet-5"
+        default: "openai/gpt-4o-mini"
 
 permissions:
   contents: read
+  models: read
 
 jobs:
   showcase:
     runs-on: ubuntu-latest
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_MODEL: ${{ inputs.model }}
+      # The built-in token; `permissions: models: read` grants it GitHub Models
+      # inference access. No repository secret required.
+      GITHUB_TOKEN: ${{ github.token }}
+      MODEL: ${{ inputs.model }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -40,18 +45,10 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Fail early if the API key is missing
-        run: |
-          if [ -z "${ANTHROPIC_API_KEY}" ]; then
-            echo "ANTHROPIC_API_KEY is not set — add it as a repository secret (see CONTRIBUTING.md)."
-            exit 1
-          fi
-
       # Best-of-3: play three episodes on distinct seeds (0 is the canonical
-      # death world). Each is allowed to flake (|| true) — a loss or a model
-      # hiccup must not turn the build red. cmd/run hosts the engine and drives
-      # the LLM agent, which routes every model reply through the quarantined
-      # parser; misparses become free waits, never deaths (GDD P3).
+      # death world). Each is allowed to flake (|| true). cmd/run hosts the
+      # engine and drives the LLM agent, which routes every model reply through
+      # the quarantined parser; misparses become free waits, never deaths (P3).
       - name: Play best-of-3
         run: |
           for seed in 0 1 2; do
@@ -59,7 +56,7 @@ jobs:
             mkdir -p "${dir}"
             echo "::group::episode seed=${seed}"
             go run ./cmd/run \
-              --agent "go run ./agent/llm --report ${dir}/death_report.json" \
+              --agent "go run ./agent/llm --provider github-models --model ${MODEL} --report ${dir}/death_report.json" \
               --seed "${seed}" \
               --bracket "llm" \
               --deadline 90s \
