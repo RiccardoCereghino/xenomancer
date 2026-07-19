@@ -15,7 +15,29 @@
     },
     {
       "id": "forest_path",
-      "exits": ["clearing", "still_pond", "gate"]
+      "exits": ["clearing", "still_pond", "gate"],
+      "hazard": {
+        "id": "wolf",
+        "fuse": 12,
+        "cause": "hazard.wolf",
+        "telegraphs": [
+          {"at": 6, "stage": 1},
+          {"at": 9, "stage": 2},
+          {"at": 11, "stage": 3}
+        ],
+        "grapple": {
+          "resources": ["hand_left", "hand_right", "legs"],
+          "struggle_target": "struggle",
+          "struggles_required": 2,
+          "rounds": 2
+        },
+        "epitaphs": [
+          "The woods gave three warnings. He read none of them, and the fourth had teeth.",
+          "He lingered on the path until the path grew a mouth. It closed patiently.",
+          "The howls were for him all along. He learned this at the very end, briefly.",
+          "He mistook the growl for scenery. The wolf did not mistake him for anything."
+        ]
+      }
     },
     {
       "id": "still_pond",

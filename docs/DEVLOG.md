@@ -4,6 +4,27 @@ Convention: one entry per working day, newest first. Entries are appended by the
 
 ---
 
+## 2026-07-19 — The wolf: hazard framework + telegraph ladder (backlog 02)
+
+Shipped the slice's one attention-under-noise test — the reference implementation of "no fuse without a telegraph ladder" (GDD P3, §5.6). This is the difficulty the 2026-07-18 in-character showcase entry flagged as still missing.
+
+**Shipped (issue #4)**
+- **Engine hazard framework.** A per-zone integer fuse in `State` (`Fuse`) advances once per in-zone round and resets to zero the moment a round ends outside the zone ("the wolf will not pursue you past the treeline"). At the content-defined length the hazard grapples: sustained `Hold`s on both hands and legs, a two-round escape window (`GrappleRoundsLeft`) needing two `perform`/`struggle` successes (`GrappleStruggles`). Break free → holds release and fuse resets; window closes still held → `died{report}`, cause `hazard.wolf`. While grappled, any non-struggle claim on a held limb is a `resource_conflict` rejection (never silently dropped). New events: `telegraph{stage}`, `grappled`, `struggled`, `freed`. All hazard knobs are content data (the fuse length is an [OPEN] tuning value, read from content, never hard-coded).
+- **Content.** `forest_path` gains a `wolf` hazard in `map.json` — fuse 12, telegraphs at 6/9/11, a 2-struggle/2-round grapple, and its own seeded epitaph pool. `narration.json` gains the telegraph rungs (woven into ambient narration, easy to skim past) and the grapple/struggle/freed prose. The shell narrator (`shell/wire`) surfaces the new events.
+- **Tests.** `engine/wolf_test.go` covers the DoD: the ladder fires at 6/9/11, the grapple springs at 12, two struggles break free, failing to kills with `hazard.wolf`, leaving the zone resets (re-entry re-telegraphs from stage 1), held-resource conflicts, and reducer purity. `shell/wire/wolf_test.go` proves the telegraph/grapple prose weaves into packets and the death is delivered as a terminal `hazard.wolf` packet listing all three telegraphs.
+
+**Decisions of record**
+- The death report's `telegraphs_ignored` lists every stage that fired before the grapple (`stage 1/2/3`) with the last stage in `detail` — this is what makes the doom auditable as fair (P3). Telegraph *prose* stays in shell narration (keyed by stage); the reducer emits only the structured stage.
+- Grapple state is three appended `uint64`s, not a bag of booleans — explicit over clever, and it keeps the frozen encoding a straight append.
+
+**Golden hash — superseded (expected).** Adding fuse/grapple state to `CanonicalBytes` is a frozen-encoding change, so per ADR-000 D5.6 it bumped the engine version and regenerated the goldens.
+- engine version: `0.2.0` → `0.3.0` (encoding v2 → v3: appended `Fuse`, `GrappleRoundsLeft`, `GrappleStruggles`).
+- content_hash: `sha256:737d5c995fbdb7dfbb9a0e2ddcacd8510052bc6376ac69d59b76392b74a7b029` → `sha256:8d141fe0a72cf79b538a0054b534908cfaafba2f53a6e1823bce4155a84591c9` (the wolf hazard added to `map.json`).
+- WIN final_state_hash: `sha256:7de18c17673be07208ea4c8f4600e3d69e15c72cddd94a0f82e2052273bc74aa` → `sha256:0b2df7bb2029818a9ac8591fac9af8f01828de5448ddadcae20e9ad7e9379a1a`.
+- DEATH final_state_hash: `sha256:7044ef6b788fbd70b8f28b837dc640ee84f50678166208ee81dfb146610dafab` → `sha256:3dcddae3780a13932329e3352fc8bb142631d7d4270da60d3c39a388cff5f796` (reproduced identically across two separate `verifygolden` runs).
+
+---
+
 ## 2026-07-18 — First live showcase run + in-character prompt rewrite
 
 First real `showcase.yml` run on GitHub Models (`openai/gpt-4o-mini`, best-of-3, seeds 0/1/2). It played **free** with the built-in `GITHUB_TOKEN` — `Models: read` confirmed in the run's token permissions, no secret, no rate-limit flakes. Result: **3 wins out of 3.** Each episode walked to the pond, inspected its reflection, learned its eye color, and answered the guard correctly (seed 0 = grey, seeds 1/2 = brown). A recurring tell across all three: it tried to walk from the dead-end pond straight to the gate, hit `illegal_move`, and backtracked for free — no memory across the mistake, but the slice never punishes wandering.

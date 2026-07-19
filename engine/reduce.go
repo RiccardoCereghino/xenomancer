@@ -73,11 +73,42 @@ func Reduce(s State, sub RoundSubmission) (State, []Event, error) {
 	}
 
 	ns := s
+
+	// If the agent is already grappled, an action on a held resource is either a
+	// struggle (the one escape) or a resource conflict — the wolf has that limb
+	// (GDD §5.6). The held-resource intercept runs before normal verb resolution.
+	wasGrappled := s.grappled()
+	var grappleHaz Hazard
+	if wasGrappled {
+		grappleHaz, _ = s.Content.hazardAt(s.Location)
+	}
+	struggled := false
+
 	for i := 0; i < len(sub.Actions); i++ {
 		a := sub.Actions[i]
 
 		if !isValidResource(a.Resource) {
 			events = append(events, rejection(ns, a, ReasonUnknownResource))
+			continue
+		}
+
+		if wasGrappled && isHeld(ns.Holds, a.Resource) {
+			// A perform on a held limb toward the grapple's struggle target is a
+			// struggle; anything else claiming a held limb is a resource conflict,
+			// rejected rather than silently dropped (GDD §5.6).
+			if a.Verb == VerbPerform && a.Target == grappleHaz.Grapple.StruggleTarget {
+				struggled = true
+				events = append(events, Event{
+					Kind:     EventStruggled,
+					Resource: a.Resource,
+					Verb:     a.Verb,
+					Target:   a.Target,
+					Tick:     ns.Tick,
+					Round:    ns.Round,
+				})
+			} else {
+				events = append(events, rejection(ns, a, ReasonResourceConflict))
+			}
 			continue
 		}
 
@@ -192,10 +223,109 @@ func Reduce(s State, sub RoundSubmission) (State, []Event, error) {
 		}
 	}
 
+	// Hazard phase (GDD §5.6). It runs only on a round that actually resolves —
+	// the free-rejection conflict path returned above without ticking — so a free
+	// rejection never advances a fuse. A terminal talk this round (win/death)
+	// short-circuits it: the episode already ended.
+	if ns.Outcome == "" {
+		if wasGrappled {
+			hazardResolveGrapple(&ns, grappleHaz, struggled, &events)
+		} else {
+			hazardAdvanceFuse(&ns, &events)
+		}
+	}
+
 	// The round resolved: advance exactly one tick and one round.
 	ns.Tick++
 	ns.Round++
 	return ns, events, nil
+}
+
+// hazardResolveGrapple advances a grapple by one round: it banks a struggle if
+// one landed, spends a round of the escape window, and then either breaks free
+// (enough struggles), kills (the window closed still held), or leaves the
+// grapple running (GDD §5.6).
+func hazardResolveGrapple(ns *State, haz Hazard, struggled bool, events *[]Event) {
+	if struggled {
+		ns.GrappleStruggles++
+	}
+	ns.GrappleRoundsLeft--
+
+	if ns.GrappleStruggles >= haz.Grapple.StrugglesRequired {
+		// Broke free: release the held limbs and reset the fuse from zero.
+		ns.Holds = nil
+		ns.Fuse = 0
+		ns.GrappleRoundsLeft = 0
+		ns.GrappleStruggles = 0
+		*events = append(*events, Event{Kind: EventFreed, Tick: ns.Tick, Round: ns.Round})
+		return
+	}
+	if ns.GrappleRoundsLeft == 0 {
+		// The escape window closed still grappled: a fair, telegraphed death (P3).
+		ns.Outcome = OutcomeDied
+		ns.Cause = haz.Cause
+		report := ns.Content.hazardDeathReport(ns.Seed, haz, ns.Round+1)
+		*events = append(*events, Event{
+			Kind:   EventDied,
+			Tick:   ns.Tick,
+			Round:  ns.Round + 1,
+			Report: &report,
+		})
+	}
+}
+
+// hazardAdvanceFuse ticks the local doom clock for the round's ending location:
+// out of the zone it resets, in the zone it climbs one, fires any telegraph rung
+// at the new count, and springs the grapple when the fuse runs out (GDD §5.6).
+func hazardAdvanceFuse(ns *State, events *[]Event) {
+	haz, ok := ns.Content.hazardAt(ns.Location)
+	if !ok {
+		// Ended the round outside any hazard zone: the fuse pauses and resets
+		// ("the wolf will not pursue you past the treeline").
+		ns.Fuse = 0
+		return
+	}
+
+	ns.Fuse++
+	for i := 0; i < len(haz.Telegraphs); i++ {
+		if haz.Telegraphs[i].At == ns.Fuse {
+			*events = append(*events, Event{
+				Kind:  EventTelegraph,
+				Stage: haz.Telegraphs[i].Stage,
+				Tick:  ns.Tick,
+				Round: ns.Round,
+			})
+		}
+	}
+	if ns.Fuse >= haz.Fuse {
+		// The fuse ran out: the hazard seizes the agent, sustaining a Hold on each
+		// grappled resource (GDD §5.1). The escape window opens next round.
+		ns.Holds = grappleHolds(haz, ns.Round+1)
+		ns.GrappleRoundsLeft = haz.Grapple.Rounds
+		ns.GrappleStruggles = 0
+		*events = append(*events, Event{Kind: EventGrappled, Tick: ns.Tick, Round: ns.Round})
+	}
+}
+
+// grappleHolds builds the sustained claims a sprung hazard places on the agent,
+// one per grappled resource in content order (GDD §5.1), tagged with the hazard
+// id and stamped with the round the grapple began.
+func grappleHolds(haz Hazard, since uint64) []Hold {
+	holds := make([]Hold, 0, len(haz.Grapple.Resources))
+	for i := 0; i < len(haz.Grapple.Resources); i++ {
+		holds = append(holds, Hold{Resource: haz.Grapple.Resources[i], Tag: haz.ID, Since: since})
+	}
+	return holds
+}
+
+// isHeld reports whether resource r is currently held, by ordered scan (no maps).
+func isHeld(holds []Hold, r Resource) bool {
+	for i := 0; i < len(holds); i++ {
+		if holds[i].Resource == r {
+			return true
+		}
+	}
+	return false
 }
 
 // duplicatesEarlierResource reports whether action i claims a resource already

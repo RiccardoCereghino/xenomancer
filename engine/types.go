@@ -18,8 +18,10 @@ import "encoding/json"
 // Version is the engine version stamped into replay headers (ADR-000 D6).
 // Changing CanonicalBytes or the vendored PRNG is a breaking change and must
 // bump this. 0.2.0 added the terminal outcome (Outcome/Cause) to the frozen
-// CanonicalBytes encoding — the gate guard's win/death (GDD §5.7, §7).
-const Version = "0.2.0"
+// CanonicalBytes encoding — the gate guard's win/death (GDD §5.7, §7). 0.3.0
+// appended the hazard fuse and grapple counters (Fuse, GrappleRoundsLeft,
+// GrappleStruggles) — the wolf's local doom clock (GDD §5.6).
+const Version = "0.3.0"
 
 // ProtocolVersion is the wire-protocol version. Every line carries "v": 1
 // (ADR-000 D4).
@@ -63,9 +65,13 @@ const (
 
 // Death causes (GDD §5.7 cause taxonomy). CauseClaimWrong is the first
 // contextual/social class: a legal, understood, wrong eye-color claim at the
-// gate — a fair death (P3).
+// gate — a fair death (P3). CauseHazardWolf is the first hazard class: a fuse
+// that ran out with the agent still grappled (GDD §5.6). The concrete cause a
+// hazard emits is content-driven (Hazard.Cause); this constant is the canonical
+// value the shipped wolf uses.
 const (
 	CauseClaimWrong = "social.claim_wrong"
+	CauseHazardWolf = "hazard.wolf"
 )
 
 // Outcome is the terminal state of an episode. The empty string means the
@@ -79,13 +85,29 @@ const (
 
 // Event kinds emitted by Reduce. Events are the only seam between the reducer
 // and every downstream consumer — narrator, scoring, spectator, replay
-// (ADR-000 D2). This sprint emits moved, waited, rejected, observed, and the
-// terminal died/won; the remaining kinds (telegraph, ritual_step) arrive with
-// later content.
+// (ADR-000 D2). This sprint emits moved, waited, rejected, observed, the hazard
+// ladder (telegraph, grappled, struggled, freed), and the terminal died/won; the
+// remaining kind (ritual_step) arrives with later content.
 const (
 	EventMoved    = "moved"
 	EventWaited   = "waited"
 	EventRejected = "rejected"
+	// EventTelegraph is a fuse warning woven into narration at a content-defined
+	// fuse point (GDD §5.6). Its Stage is the ladder rung (1..N); the shell maps
+	// the stage to prose. A telegraph is a free signal — it never ticks or kills;
+	// missing it under noise is the attention test, and every telegraph that
+	// fired before a hazard death is listed in the death report (P3).
+	EventTelegraph = "telegraph"
+	// EventGrappled fires the round a hazard's fuse reaches its length and the
+	// hazard seizes the agent, creating the sustained Holds (GDD §5.1/§5.6).
+	EventGrappled = "grappled"
+	// EventStruggled reports a successful struggle against a grapple (a perform on
+	// a held resource with the hazard's struggle target). Enough struggles inside
+	// the window break the grapple.
+	EventStruggled = "struggled"
+	// EventFreed fires when the required struggles land in time: the Holds are
+	// released and the fuse resets (GDD §5.6).
+	EventFreed = "freed"
 	// EventObserved reports a fact the agent perceived this round (GDD §5.3).
 	// The eye-color observation at the still pond is the first instance: its
 	// Value is the per-seed palette word (see Content.eyeColor). Recall of an
@@ -148,6 +170,10 @@ type Event struct {
 	Target   string       `json:"target,omitempty"`
 	Fact     string       `json:"fact,omitempty"`
 	Value    string       `json:"value,omitempty"`
+	// Stage is the telegraph ladder rung on EventTelegraph (1..N) and zero on
+	// every other kind (GDD §5.6). Like all Event fields it is re-derived on
+	// replay and never enters CanonicalBytes.
+	Stage    int          `json:"stage,omitempty"`
 	Report   *DeathReport `json:"report,omitempty"`
 	Tick     uint64       `json:"tick"`
 	Round    uint64       `json:"round"`
@@ -167,12 +193,18 @@ type DeathReport struct {
 }
 
 // DeathDetail is the cause-specific detail of a death. For social.claim_wrong it
-// records the NPC, what it asked, what the agent claimed, and the truth.
+// records the NPC, what it asked, what the agent claimed, and the truth. For a
+// hazard death it records the hazard id and the last telegraph stage the agent
+// was shown before it died. All fields are omitempty so each cause serializes
+// only the detail it fills; the report is re-derived, never hashed, so extending
+// this struct does not touch CanonicalBytes.
 type DeathDetail struct {
-	NPC     string `json:"npc"`
-	Asked   string `json:"asked"`
-	Claimed string `json:"claimed"`
-	Truth   string `json:"truth"`
+	NPC     string `json:"npc,omitempty"`
+	Asked   string `json:"asked,omitempty"`
+	Claimed string `json:"claimed,omitempty"`
+	Truth   string `json:"truth,omitempty"`
+	Hazard  string `json:"hazard,omitempty"`
+	Stage   int    `json:"stage,omitempty"`
 }
 
 // RitualProgress is the ritual state of a procedural death (Phase 1). No ritual
@@ -202,7 +234,30 @@ type State struct {
 	Outcome string
 	Cause   string
 
+	// Fuse is the current hazard fuse: the count of consecutive rounds the agent
+	// has ended in the hazard zone (GDD §5.6). It advances by one per in-zone
+	// round and resets to zero the moment the agent ends a round outside the zone
+	// ("the wolf will not pursue you past the treeline"). When it reaches the
+	// zone hazard's length the agent is grappled.
+	//
+	// GrappleRoundsLeft is the number of rounds remaining to break a grapple;
+	// zero means not grappled. GrappleStruggles counts successful struggles so
+	// far in the current grapple. Enough struggles before the rounds run out
+	// break free; running out grappled is a hazard death.
+	//
+	// All three are appended to CanonicalBytes (encoding v3, engine 0.3.0) so the
+	// fuse state is part of the replay proof.
+	Fuse              uint64
+	GrappleRoundsLeft uint64
+	GrappleStruggles  uint64
+
 	Content Content
+}
+
+// grappled reports whether the agent is currently held by a hazard (GDD §5.6):
+// a grapple is active exactly while there are rounds left to break it.
+func (s State) grappled() bool {
+	return s.GrappleRoundsLeft > 0
 }
 
 func isValidResource(r Resource) bool {

@@ -1,8 +1,8 @@
 {
   "header": {
-    "engine_version": "0.2.0",
+    "engine_version": "0.3.0",
     "protocol_version": 1,
-    "content_hash": "sha256:737d5c995fbdb7dfbb9a0e2ddcacd8510052bc6376ac69d59b76392b74a7b029",
+    "content_hash": "sha256:8d141fe0a72cf79b538a0054b534908cfaafba2f53a6e1823bce4155a84591c9",
     "seed": 1,
     "bracket": "scripted"
   },
@@ -77,5 +77,5 @@
       ]
     }
   ],
-  "final_state_hash": "sha256:7de18c17673be07208ea4c8f4600e3d69e15c72cddd94a0f82e2052273bc74aa"
+  "final_state_hash": "sha256:0b2df7bb2029818a9ac8591fac9af8f01828de5448ddadcae20e9ad7e9379a1a"
 }

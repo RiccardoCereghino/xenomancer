@@ -69,6 +69,7 @@ type DeathPacket struct {
 func BuildPacket(state engine.State, events []engine.Event, nar Narration) ObservationPacket {
 	var rejections []Rejection
 	var observations []Observation
+	var hz hazardBeats
 	moved := false
 	waited := false
 	for i := 0; i < len(events); i++ {
@@ -87,13 +88,21 @@ func BuildPacket(state engine.State, events []engine.Event, nar Narration) Obser
 			moved = true
 		case engine.EventWaited:
 			waited = true
+		case engine.EventTelegraph:
+			hz.telegraphStages = append(hz.telegraphStages, e.Stage)
+		case engine.EventGrappled:
+			hz.grappled = true
+		case engine.EventStruggled:
+			hz.struggled = true
+		case engine.EventFreed:
+			hz.freed = true
 		}
 	}
 
 	return ObservationPacket{
 		V:            engine.ProtocolVersion,
 		Round:        int(state.Round) + 1,
-		Narration:    nar.render(state.Location, moved, waited, observations, rejections),
+		Narration:    nar.render(state.Location, moved, waited, observations, rejections, hz),
 		Holds:        HoldsOrEmpty(state.Holds),
 		Observations: observationsOrEmpty(observations),
 		Result: Result{

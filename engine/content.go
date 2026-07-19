@@ -13,12 +13,52 @@ import (
 // Location is a node in the zone's location graph. Exits is an ordered slice
 // of destination location IDs reachable by a perform on legs. Inspectables is
 // an ordered slice of things an inspect can perceive here (GDD §5.3). NPCs is an
-// ordered slice of characters a talk can address here (GDD §5.4).
+// ordered slice of characters a talk can address here (GDD §5.4). Hazard, if
+// present, is the location's local doom clock (GDD §5.6).
 type Location struct {
 	ID           string        `json:"id"`
 	Exits        []string      `json:"exits"`
 	Inspectables []Inspectable `json:"inspectables,omitempty"`
 	NPCs         []NPC         `json:"npcs,omitempty"`
+	Hazard       *Hazard       `json:"hazard,omitempty"`
+}
+
+// Hazard is a location's local doom clock (GDD §5.6): an integer fuse that
+// advances one per in-zone round, a telegraph ladder woven into narration as it
+// climbs, and a grapple that seizes the agent when the fuse runs out. Every knob
+// is content data — the exact fuse length is an [OPEN] tuning value (GDD §5.6),
+// so no rule hard-codes it. The wolf on forest_path is the first instance.
+type Hazard struct {
+	ID         string          `json:"id"`
+	Fuse       uint64          `json:"fuse"`
+	Telegraphs []TelegraphStep `json:"telegraphs"`
+	Grapple    Grapple         `json:"grapple"`
+	Cause      string          `json:"cause"`
+	// Epitaphs is the ordered slice of death-report epitaph templates for this
+	// hazard (GDD §5.7); selection is a per-seed index (see Content.hazardEpitaph),
+	// so — like the eye-color palette — order is FROZEN. They live in engine
+	// content because the reducer emits them inside the structured died{report}.
+	Epitaphs []string `json:"epitaphs,omitempty"`
+}
+
+// TelegraphStep is one rung of a hazard's telegraph ladder: at fuse count At,
+// emit a telegraph of ladder Stage (GDD §5.6). The prose lives in shell
+// narration, keyed by stage; the reducer emits only the structured stage.
+type TelegraphStep struct {
+	At    uint64 `json:"at"`
+	Stage int    `json:"stage"`
+}
+
+// Grapple describes how a sprung hazard holds and can be escaped (GDD §5.1/§5.6):
+// Resources are the body resources seized as sustained Holds, StruggleTarget is
+// the perform target that counts as a struggle, StrugglesRequired is how many
+// successful struggles break free, and Rounds is the window (in rounds) to land
+// them before the grapple kills.
+type Grapple struct {
+	Resources         []Resource `json:"resources"`
+	StruggleTarget    string     `json:"struggle_target"`
+	StrugglesRequired uint64     `json:"struggles_required"`
+	Rounds            uint64     `json:"rounds"`
 }
 
 // NPC is a character an agent can talk to at a location (GDD §5.4). Asks names
@@ -121,6 +161,11 @@ func ParseContent(data []byte) (Content, error) {
 			}
 			hasNPC = true
 		}
+		if loc.Hazard != nil {
+			if err := validateHazard(loc.ID, *loc.Hazard); err != nil {
+				return Content{}, err
+			}
+		}
 	}
 	// An NPC can kill (a wrong claim → died{report}), and the report carries a
 	// seeded epitaph; a pack with an interrogator but no epitaphs to index is an
@@ -191,6 +236,16 @@ func (c Content) npc(from, target string) (NPC, bool) {
 	return NPC{}, false
 }
 
+// hazardAt returns the hazard at location from, if any, by ordered linear scan
+// (no maps, ADR-000 D5.2).
+func (c Content) hazardAt(from string) (Hazard, bool) {
+	loc, ok := c.location(from)
+	if !ok || loc.Hazard == nil {
+		return Hazard{}, false
+	}
+	return *loc.Hazard, true
+}
+
 // eyeColor is the per-seed eye-color fact (GDD §3, §5.3). It derives EXCLUSIVELY
 // from the vendored rng via a documented sub-seed and integer arithmetic over
 // the frozen-order palette — no other randomness source, no reordering
@@ -237,6 +292,92 @@ func (c Content) deathReport(seed uint64, npc, asked, claimed, truth string, rou
 		RitualProgress:    nil,
 		Epitaph:           c.epitaph(seed, claimed, truth),
 	}
+}
+
+// hazardEpitaph selects a per-seed epitaph template for a hazard death from the
+// hazard's frozen-order Epitaphs slice. Selection mirrors eyeColor/epitaph — one
+// SplitMix64 draw seeded by a hazard-namespaced sub-seed, taken mod len as the
+// index (ADR-000 D5.3) — so the same seed always yields the same line. Hazard
+// epitaphs carry no {claimed}/{truth} placeholders (a hazard has no claim).
+func (c Content) hazardEpitaph(seed uint64, haz Hazard) string {
+	r := rng.New(rng.Subseed(seed, "narration.epitaph.hazard."+haz.ID))
+	idx := r.Next() % uint64(len(haz.Epitaphs))
+	return haz.Epitaphs[idx]
+}
+
+// hazardDeathReport assembles the GDD §5.7 death report for a hazard kill. Every
+// telegraph the fuse fired before the grapple (At <= Fuse) is listed in
+// telegraphs_ignored — this is what makes the doom auditable as fair (P3) — and
+// the last such stage is recorded in the detail. ritual_progress is nil (no
+// procedural death). Reports are re-derived, never hashed (ADR-000 D3).
+func (c Content) hazardDeathReport(seed uint64, haz Hazard, round uint64) DeathReport {
+	ignored := []string{}
+	lastStage := 0
+	for i := 0; i < len(haz.Telegraphs); i++ {
+		t := haz.Telegraphs[i]
+		if t.At <= haz.Fuse {
+			ignored = append(ignored, fmt.Sprintf("stage %d", t.Stage))
+			if t.Stage > lastStage {
+				lastStage = t.Stage
+			}
+		}
+	}
+	return DeathReport{
+		Cause:             haz.Cause,
+		Detail:            DeathDetail{Hazard: haz.ID, Stage: lastStage},
+		Round:             round,
+		TelegraphsIgnored: ignored,
+		RitualProgress:    nil,
+		Epitaph:           c.hazardEpitaph(seed, haz),
+	}
+}
+
+// validateHazard checks a hazard's knobs are internally consistent so the
+// reducer can trust them: a positive fuse, telegraph rungs that fire at or
+// before the fuse length, a grapple that seizes valid resources and is winnable
+// (1 <= struggles_required <= rounds), and a non-empty cause and epitaph pool (a
+// hazard can kill, and a killer with no epitaph is an unfinishable death).
+func validateHazard(locID string, h Hazard) error {
+	if h.ID == "" {
+		return fmt.Errorf("engine: location %q has a hazard with no id", locID)
+	}
+	if h.Fuse == 0 {
+		return fmt.Errorf("engine: hazard %q at %q has a zero fuse", h.ID, locID)
+	}
+	if h.Cause == "" {
+		return fmt.Errorf("engine: hazard %q at %q has no cause", h.ID, locID)
+	}
+	for i := 0; i < len(h.Telegraphs); i++ {
+		t := h.Telegraphs[i]
+		if t.At == 0 || t.At > h.Fuse {
+			return fmt.Errorf("engine: hazard %q telegraph stage %d fires at %d, outside 1..%d", h.ID, t.Stage, t.At, h.Fuse)
+		}
+		if t.Stage <= 0 {
+			return fmt.Errorf("engine: hazard %q has a telegraph with non-positive stage %d", h.ID, t.Stage)
+		}
+	}
+	g := h.Grapple
+	if len(g.Resources) == 0 {
+		return fmt.Errorf("engine: hazard %q grapple seizes no resources", h.ID)
+	}
+	for i := 0; i < len(g.Resources); i++ {
+		if !isValidResource(g.Resources[i]) {
+			return fmt.Errorf("engine: hazard %q grapple seizes unknown resource %q", h.ID, g.Resources[i])
+		}
+	}
+	if g.StruggleTarget == "" {
+		return fmt.Errorf("engine: hazard %q grapple has no struggle target", h.ID)
+	}
+	if g.Rounds == 0 {
+		return fmt.Errorf("engine: hazard %q grapple has a zero-round escape window", h.ID)
+	}
+	if g.StrugglesRequired == 0 || g.StrugglesRequired > g.Rounds {
+		return fmt.Errorf("engine: hazard %q grapple needs %d struggles in %d rounds — unwinnable", h.ID, g.StrugglesRequired, g.Rounds)
+	}
+	if len(h.Epitaphs) == 0 {
+		return fmt.Errorf("engine: hazard %q can kill but has no epitaphs", h.ID)
+	}
+	return nil
 }
 
 // matchClaim scans reply for palette words by ordered string containment
