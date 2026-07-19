@@ -32,6 +32,9 @@ func TestCanonicalBytesFieldOrderIsFrozen(t *testing.T) {
 		0, 0, 0, 0, 0, 0, 0, 12, // Since
 		0, 0, 0, 0, // len(Outcome) = 0 (ongoing) — appended in encoding v2
 		0, 0, 0, 0, // len(Cause) = 0 — appended in encoding v2
+		0, 0, 0, 0, 0, 0, 0, 0, // Fuse = 0 — appended in encoding v3
+		0, 0, 0, 0, 0, 0, 0, 0, // GrappleRoundsLeft = 0 — appended in encoding v3
+		0, 0, 0, 0, 0, 0, 0, 0, // GrappleStruggles = 0 — appended in encoding v3
 	}
 	got := s.CanonicalBytes()
 	if !bytes.Equal(got, want) {

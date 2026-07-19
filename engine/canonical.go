@@ -14,27 +14,32 @@ import (
 // version that orphans all existing replays (ADR-000 D5.6). Any such change
 // must bump Version and keep the old tag buildable.
 //
-// Encoding v2 (all integers big-endian):
+// Encoding v3 (all integers big-endian):
 //
-//  1. Seed      : uint64                      (8 bytes)
-//  2. Tick      : uint64                      (8 bytes)
-//  3. Round     : uint64                      (8 bytes)
-//  4. Location  : uint32 length + UTF-8 bytes
-//  5. Holds     : uint32 count, then for each hold in slice order:
-//     Resource : uint32 length + UTF-8 bytes
-//     Tag      : uint32 length + UTF-8 bytes
-//     Since    : uint64                      (8 bytes)
-//  6. Outcome   : uint32 length + UTF-8 bytes  (empty while ongoing)
-//  7. Cause     : uint32 length + UTF-8 bytes  (empty unless died)
+//   1. Seed              : uint64                      (8 bytes)
+//   2. Tick              : uint64                      (8 bytes)
+//   3. Round             : uint64                      (8 bytes)
+//   4. Location          : uint32 length + UTF-8 bytes
+//   5. Holds             : uint32 count, then for each hold in slice order:
+//      Resource          : uint32 length + UTF-8 bytes
+//      Tag               : uint32 length + UTF-8 bytes
+//      Since             : uint64                      (8 bytes)
+//   6. Outcome           : uint32 length + UTF-8 bytes  (empty while ongoing)
+//   7. Cause             : uint32 length + UTF-8 bytes  (empty unless died)
+//   8. Fuse              : uint64                      (8 bytes)
+//   9. GrappleRoundsLeft : uint64                      (8 bytes)
+//  10. GrappleStruggles  : uint64                      (8 bytes)
 //
 // Fields 6-7 were appended in v2 (engine 0.2.0) for the terminal outcome
-// (GDD §5.7, §7). Appending is still a frozen-encoding change — it moves every
-// hash — so it bumped Version and superseded the goldens (ADR-000 D5.6).
+// (GDD §5.7, §7). Fields 8-10 were appended in v3 (engine 0.3.0) for the hazard
+// fuse and grapple state — the wolf (GDD §5.6). Appending is still a
+// frozen-encoding change — it moves every hash — so each bumped Version and
+// superseded the goldens (ADR-000 D5.6).
 //
 // Content is intentionally NOT encoded: content identity is tracked separately
 // by content hash in the replay header (ADR-000 D5.5 / D6).
 func (s State) CanonicalBytes() []byte {
-	b := make([]byte, 0, 64)
+	b := make([]byte, 0, 88)
 	b = appendUint64(b, s.Seed)
 	b = appendUint64(b, s.Tick)
 	b = appendUint64(b, s.Round)
@@ -47,6 +52,9 @@ func (s State) CanonicalBytes() []byte {
 	}
 	b = appendString(b, s.Outcome)
 	b = appendString(b, s.Cause)
+	b = appendUint64(b, s.Fuse)
+	b = appendUint64(b, s.GrappleRoundsLeft)
+	b = appendUint64(b, s.GrappleStruggles)
 	return b
 }
 
