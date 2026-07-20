@@ -4,6 +4,25 @@ Convention: one entry per working day, newest first. Entries are appended by the
 
 ---
 
+## 2026-07-20 — Seeded the backlog from the settled direction (specs 10–25)
+
+Turned the 2026-07-20 "Issue Plan: decisions, engine exposure, editor runway" into backlog-as-code. No engine or content-pack change — this is the plan made into tracked specs so the next sessions have edges to build to. The ordering law it encodes: decisions first (golden-neutral) → engine exposure (parallel-safe) → one breaking bump → dashboard → content iteration.
+
+**Shipped**
+- **12 new backlog specs (`.github/backlog/10–21`).** Track A decisions/docs: `10` NPC interaction state machine + first-class verbs (A2), `11` local content+telemetry dashboard (A3), `12` define "Zone 1 at 90%" (A1), `13` ADR-001 engine-exposure contract (A4), `14` CONTRIBUTING backlog+content-review+branch-naming (A5), `15` DEVLOG backfill (A6). Track B engine exposure: `16` `cmd/validate`, `17` `cmd/trace`, `18` published content JSON Schema. Track D dashboard build: `19` telemetry view, `20` showcase runner, `21` author view. (`cmd/validate` and `cmd/trace` are new — only `cmd/run` exists today.)
+- **4 retro-file specs (`.github/backlog/22–25`)** for the live-filed #21–24, titles matching the issues exactly so repo-sync skips them (no duplicates) — closes audit **Divergence 02** (every code issue originates from a backlog spec). `22`→#21 (parser dictionary v2, stays active as Track C2); `23`→#22 and `24`→#23 (superseded by spec 10); `25`→#24 (superseded by spec 11).
+
+**Decisions of record**
+- **Obstructive-only interactions.** Spec 10 adds no lethal dialogue transitions; the one existing lethal path (wrong eye-color claim → `social.claim_wrong`) is preserved unchanged. Lethal dialogue is deferred to Track E, blocked on the telegraph contract (#12).
+- **Verb set v2 (closed, frozen):** `move | talk | inspect | perform | wait`. `move` retires the `perform`/`legs` hack; `perform` stays for ritual/manipulation. #22 and #23 land as **one** CanonicalBytes churn (encoding v3→v4, engine 0.3.0→0.4.0) under spec 10 — not two.
+- **Dashboard boundary clause ("no shadow engine").** The dashboard may read/write hash-addressed content and render the event stream; it may not compute, judge, score, or interpret anything the reducer computes. Episodes run by shelling out to `cmd/run`; events are displayed, never re-derived. Elevated to ADR-001 (spec 13) so it can't be re-argued.
+- **Deploy:** Mac mini, localhost, Tailscale from phone / Steam Machine; Ollama on the same host for local showcases.
+- **Supersede plan:** on merge, repo-sync materializes specs 10–21 as new issues and skips the 22–25 retros; #22/#23/#24 are then closed as superseded by their consolidated specs (10/11).
+
+**Golden hash — unchanged.** Docs/backlog only; no `/engine` or content-pack change.
+
+---
+
 ## 2026-07-19 — The wolf: hazard framework + telegraph ladder (backlog 02)
 
 Shipped the slice's one attention-under-noise test — the reference implementation of "no fuse without a telegraph ladder" (GDD P3, §5.6). This is the difficulty the 2026-07-18 in-character showcase entry flagged as still missing.
